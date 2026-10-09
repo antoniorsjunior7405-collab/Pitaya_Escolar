@@ -39,5 +39,10 @@ yarn-error.*
 example
 
 # generated native folders
-/ios
-/android
+frontend/ios
+frontend/android
+
+# backend
+backend/node_modules/
+backend/dist/
+backend/.env
