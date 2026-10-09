@@ -1,35 +1,68 @@
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { Button, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getRotas } from '@/services/mockData';
+import { ThemedText } from '@/components/themed-text';
+import { Card } from '@/components/ui/card';
+import { EstadoCarregando } from '@/components/ui/estado-carregando';
+import { EstadoErro } from '@/components/ui/estado-erro';
+import { EstadoVazio } from '@/components/ui/estado-vazio';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { Spacing } from '@/constants/theme';
+import { useSession } from '@/context/session';
+import { useResponsive } from '@/hooks/use-responsive';
+import { chavesMotorista, listarRotas } from '@/services/motorista';
+import type { Periodo } from '@/types';
+
+const PERIODO: Record<Periodo, string> = { MANHA: 'Manhã', TARDE: 'Tarde', NOITE: 'Noite' };
 
 export default function MinhasRotas() {
+  const responsivo = useResponsive();
   const router = useRouter();
-  const rotas = getRotas();
+  const { sair } = useSession();
+  const rotas = useQuery({ queryKey: chavesMotorista.rotas, queryFn: listarRotas });
+
+  if (rotas.isPending) return <EstadoCarregando mensagem="Carregando suas rotas…" />;
+  if (rotas.isError) return <EstadoErro erro={rotas.error} onTentarNovamente={() => void rotas.refetch()} />;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <FlatList
-        data={rotas}
+        data={rotas.data}
         keyExtractor={(rota) => rota.id}
-        contentContainerStyle={styles.lista}
+        contentContainerStyle={[styles.lista, responsivo.conteudo]}
+        refreshing={rotas.isRefetching}
+        onRefresh={() => void rotas.refetch()}
+        ListEmptyComponent={
+          <EstadoVazio
+            titulo="Nenhuma rota ainda"
+            descricao="Quando a escola cadastrar uma rota para você, ela aparece aqui."
+          />
+        }
         renderItem={({ item }) => (
-          <Pressable
-            style={styles.cartao}
+          <Card
+            accessibilityLabel={`Abrir rota ${item.nome}`}
             onPress={() =>
               router.push({ pathname: '/motorista/rota/[id]', params: { id: item.id } })
             }>
-            <Text style={styles.cartaoTitulo}>{item.nome}</Text>
-            <Text style={styles.cartaoTexto}>
-              {item.alunos.length} alunos · {item.veiculo.modelo} ({item.veiculo.placa})
-            </Text>
-          </Pressable>
+            <ThemedText type="smallBold" style={styles.titulo}>
+              {item.nome}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {[item.periodo && PERIODO[item.periodo], `${item.totalAlunos} alunos`]
+                .filter(Boolean)
+                .join(' · ')}
+            </ThemedText>
+            <ThemedText type="small" themeColor="textSecondary">
+              {item.veiculo.modelo} ({item.veiculo.placa})
+            </ThemedText>
+          </Card>
         )}
         ListFooterComponent={
           <View style={styles.rodape}>
-            <Button title="Ver histórico" onPress={() => router.push('/motorista/historico')} />
-            <Button title="Trocar de papel" onPress={() => router.replace('/')} />
+            <PrimaryButton titulo="Ver histórico" onPress={() => router.push('/motorista/historico')} />
+            <PrimaryButton titulo="Sair" variante="secundario" onPress={() => void sair()} />
           </View>
         }
       />
@@ -39,16 +72,7 @@ export default function MinhasRotas() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  lista: { padding: 16, gap: 12 },
-  cartao: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    gap: 4,
-  },
-  cartaoTitulo: { fontSize: 16, fontWeight: '600' },
-  cartaoTexto: { fontSize: 14, color: '#4B5563' },
-  rodape: { marginTop: 12, gap: 12 },
+  lista: { paddingVertical: Spacing.three, gap: Spacing.three },
+  titulo: { fontSize: 16 },
+  rodape: { marginTop: Spacing.three, gap: Spacing.three },
 });

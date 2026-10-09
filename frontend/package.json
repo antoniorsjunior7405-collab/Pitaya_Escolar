@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@expo/ui": "~57.0.22",
+    "@tanstack/react-query": "^5.104.1",
     "eslint": "^9.39.5",
     "eslint-config-expo": "~57.0.2",
     "expo": "~57.0.27",
@@ -13,7 +14,9 @@
     "expo-glass-effect": "~57.0.4",
     "expo-image": "~57.0.5",
     "expo-linking": "~57.0.12",
+    "expo-location": "~57.0.20",
     "expo-router": "~57.0.25",
+    "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.3",
@@ -23,6 +26,7 @@
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
+    "react-native-maps": "1.27.2",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -31,6 +35,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "eslint-import-resolver-node": "^0.4.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -39,7 +44,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "design:contraste": "node scripts/verificar-contraste.mjs"
   },
   "private": true
 }

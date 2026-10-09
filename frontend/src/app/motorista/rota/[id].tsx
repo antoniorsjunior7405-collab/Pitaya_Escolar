@@ -1,118 +1,172 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StatusBadge } from '@/components/status-badge';
-import { getRota } from '@/services/mockData';
-import type { Aluno, Rota, StatusAluno, StatusViagem } from '@/types';
+import { ThemedText } from '@/components/themed-text';
+import { Card } from '@/components/ui/card';
+import { EstadoCarregando } from '@/components/ui/estado-carregando';
+import { EstadoErro } from '@/components/ui/estado-erro';
+import { EstadoVazio } from '@/components/ui/estado-vazio';
+import { PrimaryButton } from '@/components/ui/primary-button';
+import { Spacing } from '@/constants/theme';
+import { useRastreamentoViagem, type EstadoRastreamento } from '@/hooks/use-rastreamento-viagem';
+import { useResponsive } from '@/hooks/use-responsive';
+import { mensagemDeErro } from '@/lib/http';
+import {
+  chavesMotorista,
+  detalharRota,
+  finalizarViagem,
+  iniciarViagem,
+  registrarEvento,
+} from '@/services/motorista';
+import type { TipoEvento } from '@/types';
 
-// Tela de uma rota. O "[id]" no nome do arquivo vira um parâmetro: /motorista/rota/rota-1.
+const AVISO_GPS: Record<EstadoRastreamento, string | null> = {
+  inativo: null,
+  'aguardando-gps': 'Obtendo sua localização…',
+  ativo: 'Localização sendo compartilhada com os responsáveis. Mantenha o app aberto.',
+  'sem-permissao':
+    'Sem permissão de localização: os responsáveis não verão o veículo no mapa. Ative nas configurações do aparelho.',
+  erro: 'Falha ao enviar a localização. Tentando novamente…',
+};
+
+// Tela de uma rota: iniciar a viagem, marcar embarque/entrega e finalizar.
+// As regras (RN-08 etc.) são validadas no backend; aqui a interface só guia o motorista.
 export default function DetalheDaRota() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const rota = getRota(id);
+  const responsivo = useResponsive();
+  const queryClient = useQueryClient();
+  const rota = useQuery({ queryKey: chavesMotorista.rota(id), queryFn: () => detalharRota(id) });
 
-  if (!rota) {
-    return (
-      <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-        <Text style={styles.vazio}>Rota não encontrada.</Text>
-      </SafeAreaView>
-    );
+  const viagem = rota.data?.viagemAtual ?? null;
+  const emAndamento = viagem?.status === 'EM_ANDAMENTO';
+  const rastreamento = useRastreamentoViagem(emAndamento ? viagem.id : null);
+
+  const atualizar = () => queryClient.invalidateQueries({ queryKey: chavesMotorista.rota(id) });
+  const avisarErro = (erro: unknown) =>
+    Alert.alert('Não foi possível concluir', mensagemDeErro(erro));
+
+  const iniciar = useMutation({ mutationFn: () => iniciarViagem(id), onSuccess: atualizar, onError: avisarErro });
+  const finalizar = useMutation({
+    mutationFn: (viagemId: string) => finalizarViagem(viagemId),
+    onSuccess: () => {
+      void atualizar();
+      void queryClient.invalidateQueries({ queryKey: chavesMotorista.historico });
+    },
+    onError: avisarErro,
+  });
+  const evento = useMutation({
+    mutationFn: (v: { viagemId: string; alunoId: string; tipo: TipoEvento }) =>
+      registrarEvento(v.viagemId, v.alunoId, v.tipo),
+    onSuccess: atualizar,
+    onError: avisarErro,
+  });
+
+  function confirmarFinalizacao(viagemId: string) {
+    Alert.alert('Finalizar viagem?', 'Depois de finalizada, não é possível registrar mais embarques.', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Finalizar', style: 'destructive', onPress: () => finalizar.mutate(viagemId) },
+    ]);
   }
 
-  return <RotaDetalhe rota={rota} />;
-}
+  if (rota.isPending) return <EstadoCarregando mensagem="Carregando rota…" />;
+  if (rota.isError) return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
 
-function estadoInicial(alunos: Aluno[]): Record<string, StatusAluno> {
-  const estado: Record<string, StatusAluno> = {};
-  for (const aluno of alunos) {
-    estado[aluno.id] = 'AGUARDANDO';
-  }
-  return estado;
-}
+  const { data } = rota;
+  const aviso = AVISO_GPS[rastreamento];
 
-function RotaDetalhe({ rota }: { rota: Rota }) {
-  // Estado LOCAL da tela: some ao sair dela. Não é salvo em lugar nenhum (mock).
-  const [statusViagem, setStatusViagem] = useState<StatusViagem>('PLANEJADA');
-  const [statusAlunos, setStatusAlunos] = useState<Record<string, StatusAluno>>(() =>
-    estadoInicial(rota.alunos),
-  );
-
-  const emAndamento = statusViagem === 'EM_ANDAMENTO';
-
-  function marcarAluno(alunoId: string, novoStatus: StatusAluno) {
-    setStatusAlunos((atual) => ({ ...atual, [alunoId]: novoStatus }));
-  }
-
-  // ATENÇÃO: as regras abaixo (RN-07, RN-08, RN-10, RN-11) estão aplicadas só na
-  // interface, para guiar o usuário (UX). A validação de verdade será no backend (RN-04).
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      <Stack.Screen options={{ title: rota.nome }} />
-      <ScrollView contentContainerStyle={styles.conteudo}>
-        <View style={styles.cartao}>
-          <Text style={styles.cartaoTexto}>
-            Veículo: {rota.veiculo.modelo} ({rota.veiculo.placa})
-          </Text>
-          <StatusBadge status={statusViagem} />
+      <Stack.Screen options={{ title: data.nome }} />
+      <FlatList
+        data={data.alunos}
+        keyExtractor={(aluno) => aluno.id}
+        contentContainerStyle={[styles.lista, responsivo.conteudo]}
+        refreshing={rota.isRefetching}
+        onRefresh={() => void rota.refetch()}
+        ListEmptyComponent={
+          <EstadoVazio titulo="Sem alunos nesta rota" descricao="Peça à escola para incluir os alunos." />
+        }
+        ListHeaderComponent={
+          <>
+            <Card>
+              <ThemedText type="small" themeColor="textSecondary">
+                Veículo: {data.veiculo.modelo} ({data.veiculo.placa})
+              </ThemedText>
+              <StatusBadge status={viagem?.status ?? 'PLANEJADA'} />
 
-          {statusViagem === 'PLANEJADA' && (
-            <Button title="Iniciar viagem" onPress={() => setStatusViagem('EM_ANDAMENTO')} />
-          )}
-          {statusViagem === 'EM_ANDAMENTO' && (
-            <Button title="Finalizar viagem" onPress={() => setStatusViagem('FINALIZADA')} />
-          )}
-          {statusViagem === 'FINALIZADA' && (
-            <Text style={styles.cartaoTexto}>Viagem finalizada. Não há mais ações possíveis.</Text>
-          )}
-        </View>
-
-        <Text style={styles.secao}>Alunos</Text>
-        {rota.alunos.map((aluno) => {
-          const status = statusAlunos[aluno.id];
+              {!emAndamento && (
+                <PrimaryButton
+                  titulo={viagem?.status === 'FINALIZADA' ? 'Iniciar nova viagem' : 'Iniciar viagem'}
+                  carregando={iniciar.isPending}
+                  onPress={() => iniciar.mutate()}
+                />
+              )}
+              {emAndamento && (
+                <PrimaryButton
+                  titulo="Finalizar viagem"
+                  variante="secundario"
+                  carregando={finalizar.isPending}
+                  onPress={() => confirmarFinalizacao(viagem.id)}
+                />
+              )}
+              {aviso ? (
+                <ThemedText
+                  type="small"
+                  accessibilityRole="alert"
+                  themeColor={rastreamento === 'ativo' ? 'textSecondary' : 'danger'}>
+                  {aviso}
+                </ThemedText>
+              ) : null}
+            </Card>
+            <ThemedText type="subtitle" style={styles.secao}>
+              Alunos
+            </ThemedText>
+          </>
+        }
+        ListFooterComponent={
+          !emAndamento && data.alunos.length > 0 ? (
+            <ThemedText type="small" themeColor="textSecondary">
+              Inicie a viagem para marcar embarque e entrega.
+            </ThemedText>
+          ) : null
+        }
+        renderItem={({ item }) => {
+          const proximo: TipoEvento | null =
+            item.status === 'AGUARDANDO' ? 'EMBARCADO' : item.status === 'EMBARCADO' ? 'ENTREGUE' : null;
+          const enviandoEste = evento.isPending && evento.variables?.alunoId === item.id;
           return (
-            <View key={aluno.id} style={styles.cartao}>
-              <Text style={styles.cartaoTitulo}>{aluno.nome}</Text>
-              <StatusBadge status={status} />
-              {status === 'AGUARDANDO' && (
-                <Button
-                  title="Embarcou"
-                  disabled={!emAndamento}
-                  onPress={() => marcarAluno(aluno.id, 'EMBARCADO')}
+            <Card>
+              <ThemedText type="smallBold" style={styles.nome}>
+                {item.ordem}. {item.nome}
+              </ThemedText>
+              {item.endereco ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {item.endereco}
+                </ThemedText>
+              ) : null}
+              <StatusBadge status={emAndamento || viagem ? item.status : 'AGUARDANDO'} />
+              {emAndamento && proximo ? (
+                <PrimaryButton
+                  titulo={proximo === 'EMBARCADO' ? `Embarcou: ${item.nome}` : `Entregue: ${item.nome}`}
+                  carregando={enviandoEste}
+                  desabilitado={evento.isPending && !enviandoEste}
+                  onPress={() => evento.mutate({ viagemId: viagem.id, alunoId: item.id, tipo: proximo })}
                 />
-              )}
-              {status === 'EMBARCADO' && (
-                <Button
-                  title="Entregue"
-                  disabled={!emAndamento}
-                  onPress={() => marcarAluno(aluno.id, 'ENTREGUE')}
-                />
-              )}
-            </View>
+              ) : null}
+            </Card>
           );
-        })}
-        {!emAndamento && statusViagem === 'PLANEJADA' && (
-          <Text style={styles.dica}>Inicie a viagem para marcar embarque e entrega.</Text>
-        )}
-      </ScrollView>
+        }}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  conteudo: { padding: 16, gap: 12 },
-  vazio: { padding: 16, fontSize: 16 },
-  secao: { fontSize: 18, fontWeight: '700', marginTop: 8 },
-  cartao: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 16,
-    gap: 8,
-  },
-  cartaoTitulo: { fontSize: 16, fontWeight: '600' },
-  cartaoTexto: { fontSize: 14, color: '#4B5563' },
-  dica: { fontSize: 12, color: '#6B7280' },
+  lista: { paddingVertical: Spacing.three, gap: Spacing.three },
+  secao: { marginTop: Spacing.two },
+  nome: { fontSize: 16 },
 });

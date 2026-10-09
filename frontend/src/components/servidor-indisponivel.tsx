@@ -1,4 +1,3 @@
-import { Redirect } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,25 +7,23 @@ import { Spacing } from '@/constants/theme';
 import { useSession } from '@/context/session';
 import { useResponsive } from '@/hooks/use-responsive';
 
-// Porta de entrada depois do login: leva cada pessoa para a área do seu papel.
-export default function Inicio() {
+// Mostrada quando existe uma sessão salva, mas o servidor não respondeu (offline ou dormindo).
+// Não desconectamos o usuário: a sessão pode estar perfeitamente válida.
+export function ServidorIndisponivel() {
   const responsivo = useResponsive();
-  const { papel, dados, sair } = useSession();
+  const { tentarNovamente, sair } = useSession();
 
-  if (papel === 'MOTORISTA') return <Redirect href="/motorista" />;
-  if (papel === 'RESPONSAVEL') return <Redirect href="/responsavel" />;
-  if (papel === 'ADMIN') return <Redirect href="/admin" />;
-
-  // Conta sem vínculo com nenhuma organização ativa.
   return (
     <SafeAreaView style={styles.container}>
       <View style={[styles.conteudo, responsivo.formulario]}>
         <ThemedText type="subtitle" style={styles.centro}>
-          Olá, {dados?.usuario.nome}
+          Não conseguimos conectar
         </ThemedText>
         <ThemedText themeColor="textSecondary" style={styles.centro}>
-          Sua conta ainda não está vinculada a uma organização.
+          Verifique sua internet. Se o problema continuar, o servidor pode estar iniciando: tente
+          novamente em instantes.
         </ThemedText>
+        <PrimaryButton titulo="Tentar novamente" onPress={() => void tentarNovamente()} />
         <PrimaryButton titulo="Sair" variante="secundario" onPress={() => void sair()} />
       </View>
     </SafeAreaView>

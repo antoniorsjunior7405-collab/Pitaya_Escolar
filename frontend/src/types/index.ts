@@ -1,47 +1,75 @@
-// Tipos do domínio do Pitaya Escolar (versão frontend/mock).
-// Os nomes dos status seguem docs/DATABASE.md e docs/BUSINESS_RULES.md.
-// Quando existir backend, estes tipos serão gerados a partir do schema (Dia 3).
+// Tipos do domínio, espelhando as respostas da API (backend/src/modules/*/…schemas.ts).
+// Datas chegam como string ISO no JSON.
 
 /** Estados de uma viagem (RN-08: PLANEJADA → EM_ANDAMENTO → FINALIZADA, sem volta). */
 export type StatusViagem = 'PLANEJADA' | 'EM_ANDAMENTO' | 'FINALIZADA';
 
 /**
- * Situação de um aluno em uma viagem.
- * AGUARDANDO é só um estado de tela ("ainda não há evento registrado").
- * No banco só existirão eventos EMBARCADO e ENTREGUE.
+ * Situação de um aluno numa viagem. AGUARDANDO = nenhum evento registrado ainda;
+ * no banco só existem eventos EMBARCADO e ENTREGUE.
  */
 export type StatusAluno = 'AGUARDANDO' | 'EMBARCADO' | 'ENTREGUE';
+export type TipoEvento = 'EMBARCADO' | 'ENTREGUE';
+export type Periodo = 'MANHA' | 'TARDE' | 'NOITE';
 
-export type Veiculo = {
-  placa: string;
-  modelo: string;
+export type Veiculo = { placa: string; modelo: string };
+
+export type Evento = { alunoId: string; tipo: TipoEvento; registradoEm: string };
+
+export type Viagem = {
+  id: string;
+  status: StatusViagem;
+  data: string;
+  iniciadaEm: string | null;
+  finalizadaEm: string | null;
+  eventos: Evento[];
 };
 
-export type Aluno = {
+export type RotaResumo = {
   id: string;
   nome: string;
-};
-
-export type Rota = {
-  id: string;
-  nome: string;
+  periodo: Periodo | null;
   veiculo: Veiculo;
-  alunos: Aluno[];
+  totalAlunos: number;
+};
+
+export type AlunoDaRota = {
+  id: string;
+  nome: string;
+  ordem: number;
+  endereco: string | null;
+  status: StatusAluno;
+};
+
+export type RotaDetalhe = Omit<RotaResumo, 'totalAlunos'> & {
+  alunos: AlunoDaRota[];
+  viagemAtual: Viagem | null;
 };
 
 export type ViagemHistorico = {
   id: string;
   rotaNome: string;
   data: string;
-  totalAlunos: number;
+  iniciadaEm: string | null;
+  finalizadaEm: string | null;
+  alunosAtendidos: number;
 };
 
-/** O que o responsável enxerga sobre um filho. */
-export type Filho = {
+export type Posicao = {
+  latitude: number;
+  longitude: number;
+  velocidade: number | null;
+  atualizadaEm: string;
+};
+
+export type FilhoResumo = {
   id: string;
   nome: string;
-  statusViagem: StatusViagem;
   statusAluno: StatusAluno;
-  motoristaNome: string;
-  veiculo: Veiculo;
+  viagem: { id: string; status: StatusViagem } | null;
+  rotaNome: string | null;
+  motorista: { nome: string; telefone: string | null } | null;
+  veiculo: Veiculo | null;
 };
+
+export type FilhoDetalhe = FilhoResumo & { posicao: Posicao | null };
