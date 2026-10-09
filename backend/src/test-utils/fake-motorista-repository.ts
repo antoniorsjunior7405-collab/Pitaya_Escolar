@@ -92,6 +92,7 @@ export function criarFakeMotoristaRepository() {
       if (!v) return undefined;
       v.status = 'FINALIZADA';
       v.finalizadaEm = new Date();
+      posicoes.delete(viagemId);
       return v;
     },
     async salvarPosicao(viagemId, p) {

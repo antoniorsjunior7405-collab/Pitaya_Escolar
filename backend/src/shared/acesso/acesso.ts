@@ -1,7 +1,5 @@
-import { and, eq } from 'drizzle-orm';
 import type { FastifyRequest } from 'fastify';
-import type { Db } from '../../db/index.js';
-import { schema } from '../../db/index.js';
+import type { schema } from '../../db/index.js';
 import { ForbiddenError, UnauthorizedError } from '../errors/app-error.js';
 
 export type Papel = (typeof schema.papelEnum.enumValues)[number];
@@ -9,10 +7,11 @@ export type Papel = (typeof schema.papelEnum.enumValues)[number];
 /** Quem está fazendo a requisição, e em nome de qual organização. */
 export type Membro = { usuarioId: string; organizacaoId: string; papel: Papel };
 
-export interface AcessoRepository {
-  /** Vínculo ativo do usuário com o papel pedido (organização ativa e usuário ativo). */
-  buscarMembro(usuarioId: string, papel: Papel): Promise<Membro | undefined>;
-}
+/**
+ * Conteúdo do token de acesso. `m` = vínculos do usuário (organização + papel), gravados
+ * ao emitir o token (login/renovação). Nomes curtos: o token viaja em toda requisição.
+ */
+export type ClaimsDeAcesso = { sub: string; m: { o: string; p: Papel }[] };
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -20,44 +19,22 @@ declare module 'fastify' {
   }
 }
 
-export function createAcessoRepository(db: Db): AcessoRepository {
-  const { membros, organizacoes, usuarios } = schema;
-  return {
-    async buscarMembro(usuarioId, papel) {
-      const [row] = await db
-        .select({
-          usuarioId: membros.usuarioId,
-          organizacaoId: membros.organizacaoId,
-          papel: membros.papel,
-        })
-        .from(membros)
-        .innerJoin(organizacoes, eq(organizacoes.id, membros.organizacaoId))
-        .innerJoin(usuarios, eq(usuarios.id, membros.usuarioId))
-        .where(
-          and(
-            eq(membros.usuarioId, usuarioId),
-            eq(membros.papel, papel),
-            eq(organizacoes.ativa, true),
-            eq(usuarios.ativo, true),
-          ),
-        )
-        .orderBy(membros.criadoEm)
-        .limit(1);
-      return row;
-    },
-  };
-}
-
 /**
  * Hook que exige um papel. Usado no escopo de cada módulo (motorista, responsável, admin):
  * toda rota daquele módulo passa por aqui, então nenhuma rota "esquece" a checagem.
- * Deve rodar depois de app.authenticate.
+ * Lê os vínculos do token já validado (sem consulta ao banco). Deve rodar depois de
+ * app.authenticate.
  */
-export function exigirPapel(repo: AcessoRepository, papel: Papel) {
+export function exigirPapel(papel: Papel) {
   return async function verificarPapel(req: FastifyRequest) {
-    const membro = await repo.buscarMembro(req.user.sub, papel);
-    if (!membro) throw new ForbiddenError('Sem permissão para esta área');
-    req.membro = membro;
+    const vinculos = (req.user as Partial<ClaimsDeAcesso>).m;
+    // Token emitido antes desta versão (sem vínculos): 401 faz o app renovar a sessão
+    // e receber um token novo, em vez de mostrar "sem permissão".
+    if (!Array.isArray(vinculos)) throw new UnauthorizedError('Sessão desatualizada');
+
+    const vinculo = vinculos.find((v) => v.p === papel);
+    if (!vinculo) throw new ForbiddenError('Sem permissão para esta área');
+    req.membro = { usuarioId: req.user.sub, organizacaoId: vinculo.o, papel };
   };
 }
 

@@ -27,6 +27,12 @@ export class ForbiddenError extends AppError {
   }
 }
 
+export class MuitasTentativasError extends AppError {
+  constructor(message: string) {
+    super('TOO_MANY_REQUESTS', message, 429);
+  }
+}
+
 /** A requisição é válida, mas fere uma regra de negócio (ex.: entregar aluno que não embarcou). */
 export class RegraDeNegocioError extends AppError {
   constructor(message: string) {

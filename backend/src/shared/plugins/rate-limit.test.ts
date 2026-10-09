@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { buildApp } from '../../app.js';
-import { criarFakeAcesso, depsDeTeste } from '../../test-utils/deps.js';
+import { autorizacao, depsDeTeste } from '../../test-utils/deps.js';
+import type { Membro } from '../acesso/acesso.js';
 import { criarFakeMotoristaRepository } from '../../test-utils/fake-motorista-repository.js';
 
 // Dois motoristas no MESMO IP (CGNAT da operadora) não podem dividir o limite.
@@ -10,20 +11,16 @@ test('rate limit de rotas logadas conta por usuário, não por IP', async () => 
   const org = randomUUID();
   const [m1, m2] = [randomUUID(), randomUUID()];
   const fake = criarFakeMotoristaRepository();
-  const app = await buildApp(
-    depsDeTeste({
-      acessoRepository: criarFakeAcesso([
-        { usuarioId: m1, organizacaoId: org, papel: 'MOTORISTA' },
-        { usuarioId: m2, organizacaoId: org, papel: 'MOTORISTA' },
-      ]),
-      motoristaRepository: fake.repo,
-    }),
-  );
+  const membros: Membro[] = [
+    { usuarioId: m1, organizacaoId: org, papel: 'MOTORISTA' },
+    { usuarioId: m2, organizacaoId: org, papel: 'MOTORISTA' },
+  ];
+  const app = await buildApp(depsDeTeste({ motoristaRepository: fake.repo }));
   const listar = (sub: string) =>
     app.inject({
       method: 'GET',
       url: '/v1/motorista/rotas',
-      headers: { authorization: `Bearer ${app.jwt.sign({ sub })}` },
+      headers: autorizacao(app, sub, membros),
     });
 
   let ultimo = await listar(m1);

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { exigirPapel, membroDe, type AcessoRepository } from '../../shared/acesso/acesso.js';
+import { exigirPapel, membroDe } from '../../shared/acesso/acesso.js';
 import {
   evento,
   eventoBody,
@@ -16,11 +16,11 @@ import {
 } from './motorista.schemas.js';
 import type { MotoristaService } from './motorista.service.js';
 
-export function criarMotoristaRoutes(service: MotoristaService, acesso: AcessoRepository) {
+export function criarMotoristaRoutes(service: MotoristaService) {
   return async function motoristaRoutes(app: FastifyInstance) {
     // Todas as rotas deste módulo exigem login E papel MOTORISTA.
     app.addHook('onRequest', app.authenticate);
-    app.addHook('preHandler', exigirPapel(acesso, 'MOTORISTA'));
+    app.addHook('preHandler', exigirPapel('MOTORISTA'));
 
     const r = app.withTypeProvider<ZodTypeProvider>();
 

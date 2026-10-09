@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import type { Db } from '../../db/index.js';
 import { schema } from '../../db/index.js';
 
@@ -36,6 +36,17 @@ export interface AuthRepository {
   findRefreshToken(tokenHash: string): Promise<RefreshTokenRow | undefined>;
   revogarRefreshToken(id: string): Promise<void>;
   revogarTodosDoUsuario(usuarioId: string): Promise<void>;
+  /**
+   * Apaga refresh tokens expirados ou revogados há mais de um dia (o dia de folga mantém
+   * a detecção de reuso de token roubado). Sem isto a tabela cresce para sempre.
+   */
+  removerTokensVencidos(usuarioId: string): Promise<void>;
+  /**
+   * Conta uma senha errada. Ao atingir o limite, bloqueia a conta por um tempo e zera o
+   * contador. Atômico no banco (vale com várias instâncias da API).
+   */
+  registrarFalhaLogin(usuarioId: string, limite: number, bloqueioMs: number): Promise<void>;
+  limparFalhasLogin(usuarioId: string): Promise<void>;
 }
 
 export function createAuthRepository(db: Db): AuthRepository {
@@ -75,15 +86,19 @@ export function createAuthRepository(db: Db): AuthRepository {
     },
 
     async listarMembros(usuarioId) {
-      return db
-        .select({
-          organizacaoId: membros.organizacaoId,
-          organizacaoNome: organizacoes.nome,
-          papel: membros.papel,
-        })
-        .from(membros)
-        .innerJoin(organizacoes, eq(organizacoes.id, membros.organizacaoId))
-        .where(and(eq(membros.usuarioId, usuarioId), eq(organizacoes.ativa, true)));
+      return (
+        db
+          .select({
+            organizacaoId: membros.organizacaoId,
+            organizacaoNome: organizacoes.nome,
+            papel: membros.papel,
+          })
+          .from(membros)
+          .innerJoin(organizacoes, eq(organizacoes.id, membros.organizacaoId))
+          .where(and(eq(membros.usuarioId, usuarioId), eq(organizacoes.ativa, true)))
+          // Ordem estável: o vínculo mais antigo é o 'principal' do usuário.
+          .orderBy(asc(membros.criadoEm))
+      );
     },
 
     async salvarRefreshToken(input) {
@@ -109,6 +124,39 @@ export function createAuthRepository(db: Db): AuthRepository {
         .update(refreshTokens)
         .set({ revogadoEm: new Date() })
         .where(and(eq(refreshTokens.id, id), isNull(refreshTokens.revogadoEm)));
+    },
+
+    async removerTokensVencidos(usuarioId) {
+      const umDiaAtras = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await db
+        .delete(refreshTokens)
+        .where(
+          and(
+            eq(refreshTokens.usuarioId, usuarioId),
+            or(
+              lt(refreshTokens.expiraEm, new Date()),
+              and(isNotNull(refreshTokens.revogadoEm), lt(refreshTokens.revogadoEm, umDiaAtras)),
+            ),
+          ),
+        );
+    },
+
+    async registrarFalhaLogin(usuarioId, limite, bloqueioMs) {
+      const atingiu = sql`${usuarios.tentativasFalhas} + 1 >= ${limite}`;
+      await db
+        .update(usuarios)
+        .set({
+          tentativasFalhas: sql`CASE WHEN ${atingiu} THEN 0 ELSE ${usuarios.tentativasFalhas} + 1 END`,
+          bloqueadoAte: sql`CASE WHEN ${atingiu} THEN now() + (${bloqueioMs} * interval '1 millisecond') ELSE ${usuarios.bloqueadoAte} END`,
+        })
+        .where(eq(usuarios.id, usuarioId));
+    },
+
+    async limparFalhasLogin(usuarioId) {
+      await db
+        .update(usuarios)
+        .set({ tentativasFalhas: 0, bloqueadoAte: null })
+        .where(eq(usuarios.id, usuarioId));
     },
 
     async revogarTodosDoUsuario(usuarioId) {

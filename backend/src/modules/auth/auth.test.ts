@@ -193,3 +193,61 @@ test('logout revoga o refresh token', async () => {
   assert.equal(depois.statusCode, 401);
   await app.close();
 });
+
+test('bloqueio por conta: 5 senhas erradas travam até a senha certa (429)', async () => {
+  // Um app por tentativa evita que o limite POR IP (10/min) interfira: aqui testamos o da CONTA.
+  const fake = criarFakeAuthRepository();
+  const comApp = async <T>(fn: (app: Awaited<ReturnType<typeof buildApp>>) => Promise<T>) => {
+    const app = await buildApp(depsDeTeste({ authRepository: fake.repo }));
+    try {
+      return await fn(app);
+    } finally {
+      await app.close();
+    }
+  };
+  await comApp((app) =>
+    app.inject({ method: 'POST', url: '/v1/auth/cadastro', payload: cadastroValido(fake.convite) }),
+  );
+  const login = (senha: string) =>
+    comApp((app) =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/auth/login',
+        payload: { email: 'maria@exemplo.com', senha },
+      }),
+    );
+
+  for (let i = 0; i < 5; i++) assert.equal((await login('senha-errada-xx')).statusCode, 401);
+  const bloqueado = await login('senha-segura-123'); // até a senha certa é recusada
+  assert.equal(bloqueado.statusCode, 429);
+  assert.equal(bloqueado.json().code, 'TOO_MANY_REQUESTS');
+
+  // Passado o bloqueio, entra e o contador zera.
+  const usuario = fake.usuarios[0];
+  if (!usuario) throw new Error('usuário não criado');
+  usuario.bloqueadoAte = new Date(Date.now() - 1000);
+  assert.equal((await login('senha-segura-123')).statusCode, 200);
+  assert.equal(usuario.tentativasFalhas, 0);
+});
+
+test('token de acesso leva os vínculos; token antigo sem vínculos recebe 401 (renovar)', async () => {
+  const { app, fake } = await novoApp();
+  const cad = await app.inject({
+    method: 'POST',
+    url: '/v1/auth/cadastro',
+    payload: cadastroValido(fake.convite),
+  });
+  const claims = app.jwt.decode<{ sub: string; m: { o: string; p: string }[] }>(
+    cad.json<{ accessToken: string }>().accessToken,
+  );
+  assert.equal(claims?.m[0]?.p, 'RESPONSAVEL');
+
+  const antigo = app.jwt.sign({ sub: claims?.sub ?? '' } as never);
+  const res = await app.inject({
+    method: 'GET',
+    url: '/v1/responsavel/filhos',
+    headers: { authorization: `Bearer ${antigo}` },
+  });
+  assert.equal(res.statusCode, 401);
+  await app.close();
+});

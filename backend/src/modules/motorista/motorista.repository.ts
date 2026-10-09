@@ -186,13 +186,18 @@ export function createMotoristaRepository(db: Db): MotoristaRepository {
       return row;
     },
 
+    // Finaliza e APAGA a última posição do veículo na mesma transação: fora da viagem a
+    // localização não tem mais uso e não deve ficar guardada (LGPD: dados de menores).
     async finalizarViagem(viagemId) {
-      const [row] = await db
-        .update(viagens)
-        .set({ status: 'FINALIZADA', finalizadaEm: new Date() })
-        .where(and(eq(viagens.id, viagemId), eq(viagens.status, 'EM_ANDAMENTO')))
-        .returning(colunasViagem);
-      return row;
+      return db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(viagens)
+          .set({ status: 'FINALIZADA', finalizadaEm: new Date() })
+          .where(and(eq(viagens.id, viagemId), eq(viagens.status, 'EM_ANDAMENTO')))
+          .returning(colunasViagem);
+        if (row) await tx.delete(posicoesViagem).where(eq(posicoesViagem.viagemId, viagemId));
+        return row;
+      });
     },
 
     async salvarPosicao(viagemId, posicao) {

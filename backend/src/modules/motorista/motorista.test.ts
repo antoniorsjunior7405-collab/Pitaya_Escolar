@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { buildApp } from '../../app.js';
-import { criarFakeAcesso, depsDeTeste } from '../../test-utils/deps.js';
+import { autorizacao, depsDeTeste } from '../../test-utils/deps.js';
+import type { Membro } from '../../shared/acesso/acesso.js';
 import { criarFakeMotoristaRepository } from '../../test-utils/fake-motorista-repository.js';
 import { garantirOrdemDoEvento, podeFinalizar } from './regras-viagem.js';
 
@@ -15,17 +16,13 @@ async function cenario() {
   const fake = criarFakeMotoristaRepository();
   const rota = fake.adicionarRota({ organizacaoId: org, motoristaId: motorista });
 
-  const app = await buildApp(
-    depsDeTeste({
-      acessoRepository: criarFakeAcesso([
-        { usuarioId: motorista, organizacaoId: org, papel: 'MOTORISTA' },
-        { usuarioId: outroMotorista, organizacaoId: org, papel: 'MOTORISTA' },
-        { usuarioId: responsavel, organizacaoId: org, papel: 'RESPONSAVEL' },
-      ]),
-      motoristaRepository: fake.repo,
-    }),
-  );
-  const auth = (sub: string) => ({ authorization: `Bearer ${app.jwt.sign({ sub })}` });
+  const membros: Membro[] = [
+    { usuarioId: motorista, organizacaoId: org, papel: 'MOTORISTA' },
+    { usuarioId: outroMotorista, organizacaoId: org, papel: 'MOTORISTA' },
+    { usuarioId: responsavel, organizacaoId: org, papel: 'RESPONSAVEL' },
+  ];
+  const app = await buildApp(depsDeTeste({ motoristaRepository: fake.repo }));
+  const auth = (sub: string) => autorizacao(app, sub, membros);
   const [a1, a2] = rota.alunos;
   if (!a1 || !a2) throw new Error('cenário sem alunos');
   return { app, fake, rota, a1, a2, auth, motorista, outroMotorista, responsavel };
@@ -162,6 +159,8 @@ test('posição: aceita durante a viagem, valida coordenadas e recusa após fina
     url: `/v1/motorista/viagens/${viagemId}/finalizar`,
     headers: h,
   });
+  // LGPD: a última posição é apagada quando a viagem termina.
+  assert.equal(fake.posicoes.has(viagemId), false);
   assert.equal((await enviar({ latitude: -23.55, longitude: -46.63 })).statusCode, 422);
   await app.close();
 });

@@ -1,6 +1,7 @@
 import jwt from '@fastify/jwt';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { config } from '../../config/index.js';
+import type { ClaimsDeAcesso } from '../acesso/acesso.js';
 import { UnauthorizedError } from '../errors/app-error.js';
 
 declare module 'fastify' {
@@ -11,8 +12,8 @@ declare module 'fastify' {
 
 declare module '@fastify/jwt' {
   interface FastifyJWT {
-    payload: { sub: string };
-    user: { sub: string };
+    payload: ClaimsDeAcesso;
+    user: ClaimsDeAcesso;
   }
 }
 

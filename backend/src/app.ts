@@ -21,13 +21,11 @@ import {
   criarResponsavelService,
   type ResponsavelRepository,
 } from './modules/responsavel/index.js';
-import type { AcessoRepository } from './shared/acesso/acesso.js';
 import { registerAuth } from './shared/plugins/authenticate.js';
 import { registerErrorHandler } from './shared/plugins/error-handler.js';
 
 export type AppDeps = {
   authRepository: AuthRepository;
-  acessoRepository: AcessoRepository;
   motoristaRepository: MotoristaRepository;
   responsavelRepository: ResponsavelRepository;
   adminRepository: AdminRepository;
@@ -80,22 +78,19 @@ export async function buildApp(deps: AppDeps) {
   });
   await registerAuth(app);
 
-  const authService = criarAuthService(deps.authRepository, (sub) => app.jwt.sign({ sub }));
+  const authService = criarAuthService(deps.authRepository, (claims) => app.jwt.sign(claims));
 
   await app.register(healthRoutes);
   await app.register(criarAuthRoutes(authService), { prefix: '/v1/auth' });
 
   // Cada área exige o seu papel (hook no escopo do módulo).
-  const acesso = deps.acessoRepository;
-  await app.register(
-    criarMotoristaRoutes(criarMotoristaService(deps.motoristaRepository), acesso),
-    { prefix: '/v1/motorista' },
-  );
-  await app.register(
-    criarResponsavelRoutes(criarResponsavelService(deps.responsavelRepository), acesso),
-    { prefix: '/v1/responsavel' },
-  );
-  await app.register(criarAdminRoutes(criarAdminService(deps.adminRepository), acesso), {
+  await app.register(criarMotoristaRoutes(criarMotoristaService(deps.motoristaRepository)), {
+    prefix: '/v1/motorista',
+  });
+  await app.register(criarResponsavelRoutes(criarResponsavelService(deps.responsavelRepository)), {
+    prefix: '/v1/responsavel',
+  });
+  await app.register(criarAdminRoutes(criarAdminService(deps.adminRepository)), {
     prefix: '/v1/admin',
   });
 

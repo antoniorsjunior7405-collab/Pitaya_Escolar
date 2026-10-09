@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { test } from 'node:test';
 import { buildApp } from '../../app.js';
-import { criarFakeAcesso, depsDeTeste, parcial } from '../../test-utils/deps.js';
+import { autorizacao, depsDeTeste, parcial } from '../../test-utils/deps.js';
 import type { AdminRepository } from './admin.repository.js';
 
 // Organização A tem um motorista, um veículo e uma rota; a organização B tem os seus.
@@ -46,10 +46,8 @@ async function cenario() {
     adicionarAlunoNaRota: async () => 'ok',
   });
 
-  const app = await buildApp(
-    depsDeTeste({ acessoRepository: criarFakeAcesso(membros), adminRepository }),
-  );
-  const h = (sub: string) => ({ authorization: `Bearer ${app.jwt.sign({ sub })}` });
+  const app = await buildApp(depsDeTeste({ adminRepository }));
+  const h = (sub: string) => autorizacao(app, sub, membros);
   return { app, ids, h };
 }
 

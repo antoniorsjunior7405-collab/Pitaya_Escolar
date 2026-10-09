@@ -67,6 +67,9 @@ export const usuarios = pgTable('usuarios', {
   telefone: text(),
   ativo: boolean().notNull().default(true),
   superAdmin: boolean('super_admin').notNull().default(false),
+  // Proteção contra força bruta POR CONTA (complementa o limite por IP).
+  tentativasFalhas: integer('tentativas_falhas').notNull().default(0),
+  bloqueadoAte: timestamp('bloqueado_ate', { withTimezone: true }),
   criadoEm: criadoEm(),
 });
 

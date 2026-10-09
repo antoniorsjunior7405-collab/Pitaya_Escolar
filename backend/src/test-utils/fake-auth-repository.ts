@@ -31,6 +31,8 @@ export function criarFakeAuthRepository(opts: { convite?: string } = {}) {
         telefone: telefone ?? null,
         ativo: true,
         superAdmin: false,
+        tentativasFalhas: 0,
+        bloqueadoAte: null,
         criadoEm: new Date(),
         ...dados,
       };
@@ -51,6 +53,28 @@ export function criarFakeAuthRepository(opts: { convite?: string } = {}) {
     },
     async revogarRefreshToken(id) {
       for (const t of tokens.values()) if (t.id === id && !t.revogadoEm) t.revogadoEm = new Date();
+    },
+    async removerTokensVencidos(usuarioId) {
+      for (const [hash, t] of tokens) {
+        if (t.usuarioId === usuarioId && t.expiraEm.getTime() < Date.now()) tokens.delete(hash);
+      }
+    },
+    async registrarFalhaLogin(usuarioId, limite, bloqueioMs) {
+      const u = usuarios.find((x) => x.id === usuarioId);
+      if (!u) return;
+      if (u.tentativasFalhas + 1 >= limite) {
+        u.tentativasFalhas = 0;
+        u.bloqueadoAte = new Date(Date.now() + bloqueioMs);
+      } else {
+        u.tentativasFalhas += 1;
+      }
+    },
+    async limparFalhasLogin(usuarioId) {
+      const u = usuarios.find((x) => x.id === usuarioId);
+      if (u) {
+        u.tentativasFalhas = 0;
+        u.bloqueadoAte = null;
+      }
     },
     async revogarTodosDoUsuario(usuarioId) {
       for (const t of tokens.values()) {

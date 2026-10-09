@@ -1,5 +1,6 @@
+import type { FastifyInstance } from 'fastify';
 import type { AppDeps } from '../app.js';
-import type { AcessoRepository, Membro, Papel } from '../shared/acesso/acesso.js';
+import type { Membro } from '../shared/acesso/acesso.js';
 import { criarFakeAuthRepository } from './fake-auth-repository.js';
 
 /**
@@ -18,23 +19,23 @@ export function parcial<T extends object>(nome: string, implementados: Partial<T
 
 const naoUsado = <T extends object>(nome: string) => parcial<T>(nome);
 
-/** Acesso em memória: quem é membro de qual organização, com qual papel. */
-export function criarFakeAcesso(membros: Membro[] = []): AcessoRepository & { membros: Membro[] } {
-  return {
-    membros,
-    async buscarMembro(usuarioId: string, papel: Papel) {
-      return membros.find((m) => m.usuarioId === usuarioId && m.papel === papel);
-    },
-  };
-}
-
 export function depsDeTeste(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
     authRepository: criarFakeAuthRepository().repo,
-    acessoRepository: criarFakeAcesso(),
     motoristaRepository: naoUsado('motoristaRepository'),
     responsavelRepository: naoUsado('responsavelRepository'),
     adminRepository: naoUsado('adminRepository'),
     ...overrides,
   };
+}
+
+/**
+ * Cabeçalho Authorization com um token de acesso válido para o usuário e os vínculos dados
+ * (como o login emitiria).
+ */
+export function autorizacao(app: FastifyInstance, usuarioId: string, vinculos: Membro[] = []) {
+  const m = vinculos
+    .filter((v) => v.usuarioId === usuarioId)
+    .map((v) => ({ o: v.organizacaoId, p: v.papel }));
+  return { authorization: `Bearer ${app.jwt.sign({ sub: usuarioId, m })}` };
 }

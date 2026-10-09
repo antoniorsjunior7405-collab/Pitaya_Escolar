@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { exigirPapel, membroDe, type AcessoRepository } from '../../shared/acesso/acesso.js';
+import { exigirPapel, membroDe } from '../../shared/acesso/acesso.js';
 import {
   aluno,
   alunoBody,
@@ -21,10 +21,10 @@ import {
 } from './admin.schemas.js';
 import type { AdminService } from './admin.service.js';
 
-export function criarAdminRoutes(service: AdminService, acesso: AcessoRepository) {
+export function criarAdminRoutes(service: AdminService) {
   return async function adminRoutes(app: FastifyInstance) {
     app.addHook('onRequest', app.authenticate);
-    app.addHook('preHandler', exigirPapel(acesso, 'ADMIN'));
+    app.addHook('preHandler', exigirPapel('ADMIN'));
 
     const r = app.withTypeProvider<ZodTypeProvider>();
     const semCorpo = { 204: z.null() };

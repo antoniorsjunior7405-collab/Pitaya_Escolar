@@ -5,12 +5,10 @@ import { createAdminRepository } from './modules/admin/index.js';
 import { createAuthRepository } from './modules/auth/index.js';
 import { createMotoristaRepository } from './modules/motorista/index.js';
 import { createResponsavelRepository } from './modules/responsavel/index.js';
-import { createAcessoRepository } from './shared/acesso/acesso.js';
 
 const { db, pool } = createDb();
 const app = await buildApp({
   authRepository: createAuthRepository(db),
-  acessoRepository: createAcessoRepository(db),
   motoristaRepository: createMotoristaRepository(db),
   responsavelRepository: createResponsavelRepository(db),
   adminRepository: createAdminRepository(db),

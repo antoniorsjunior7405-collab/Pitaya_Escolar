@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { exigirPapel, membroDe, type AcessoRepository } from '../../shared/acesso/acesso.js';
+import { exigirPapel, membroDe } from '../../shared/acesso/acesso.js';
 import type { ResponsavelService } from './responsavel.service.js';
 
 const filhoResumo = z.object({
@@ -27,10 +27,10 @@ const filhoDetalhe = filhoResumo.extend({
     .nullable(),
 });
 
-export function criarResponsavelRoutes(service: ResponsavelService, acesso: AcessoRepository) {
+export function criarResponsavelRoutes(service: ResponsavelService) {
   return async function responsavelRoutes(app: FastifyInstance) {
     app.addHook('onRequest', app.authenticate);
-    app.addHook('preHandler', exigirPapel(acesso, 'RESPONSAVEL'));
+    app.addHook('preHandler', exigirPapel('RESPONSAVEL'));
 
     const r = app.withTypeProvider<ZodTypeProvider>();
 
