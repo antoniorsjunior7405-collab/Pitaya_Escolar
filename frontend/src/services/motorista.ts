@@ -1,12 +1,5 @@
 import { api } from '@/lib/api';
-import type {
-  Evento,
-  RotaDetalhe,
-  RotaResumo,
-  TipoEvento,
-  Viagem,
-  ViagemHistorico,
-} from '@/types';
+import type { Evento, RotaDetalhe, RotaResumo, TipoEvento, Viagem, ViagemHistorico } from '@/types';
 
 // Chamadas da área do motorista. As telas usam estas funções (nunca URLs diretas).
 

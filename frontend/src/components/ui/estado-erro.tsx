@@ -6,7 +6,13 @@ import { Spacing } from '@/constants/theme';
 import { mensagemDeErro } from '@/lib/http';
 
 // Estado de erro padrão: mensagem clara + "tentar novamente" (offline é comum no trânsito).
-export function EstadoErro({ erro, onTentarNovamente }: { erro: unknown; onTentarNovamente: () => void }) {
+export function EstadoErro({
+  erro,
+  onTentarNovamente,
+}: {
+  erro: unknown;
+  onTentarNovamente: () => void;
+}) {
   const mensagem = mensagemDeErro(erro);
 
   return (

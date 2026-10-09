@@ -39,8 +39,10 @@ export const detalharAluno = (alunoId: string) =>
   api<AlunoDetalheAdmin>(`/v1/admin/alunos/${id(alunoId)}`);
 export const criarAluno = (nome: string) =>
   api<AlunoAdmin>('/v1/admin/alunos', { method: 'POST', body: { nome } });
-export const vincularResponsavel = (alunoId: string, dados: { email: string; parentesco?: string }) =>
-  api<void>(`/v1/admin/alunos/${id(alunoId)}/responsaveis`, { method: 'POST', body: dados });
+export const vincularResponsavel = (
+  alunoId: string,
+  dados: { email: string; parentesco?: string },
+) => api<void>(`/v1/admin/alunos/${id(alunoId)}/responsaveis`, { method: 'POST', body: dados });
 
 export const listarRotas = () => api<RotaAdmin[]>('/v1/admin/rotas');
 export const detalharRota = (rotaId: string) =>

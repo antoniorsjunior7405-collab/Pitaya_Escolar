@@ -66,7 +66,12 @@ export default function Veiculos() {
               autoCorrect={false}
               placeholder="ABC1D23"
             />
-            <TextField rotulo="Modelo" value={modelo} onChangeText={setModelo} placeholder="Van Sprinter" />
+            <TextField
+              rotulo="Modelo"
+              value={modelo}
+              onChangeText={setModelo}
+              placeholder="Van Sprinter"
+            />
             <TextField
               rotulo="Capacidade (opcional)"
               value={capacidade}

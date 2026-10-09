@@ -31,7 +31,10 @@ export default function Historico() {
         refreshing={viagens.isRefetching}
         onRefresh={() => void viagens.refetch()}
         ListEmptyComponent={
-          <EstadoVazio titulo="Sem viagens ainda" descricao="As viagens finalizadas aparecem aqui." />
+          <EstadoVazio
+            titulo="Sem viagens ainda"
+            descricao="As viagens finalizadas aparecem aqui."
+          />
         }
         renderItem={({ item }) => (
           <Card>
@@ -43,7 +46,8 @@ export default function Historico() {
               {formatarHora(item.finalizadaEm)}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              {item.alunosAtendidos} {item.alunosAtendidos === 1 ? 'aluno atendido' : 'alunos atendidos'}
+              {item.alunosAtendidos}{' '}
+              {item.alunosAtendidos === 1 ? 'aluno atendido' : 'alunos atendidos'}
             </ThemedText>
             <StatusBadge status="FINALIZADA" />
           </Card>

@@ -10,7 +10,9 @@ const fonte = readFileSync(arquivo, 'utf8');
 function lerTema(nome) {
   const bloco = fonte.match(new RegExp(`${nome}: \\{([\\s\\S]*?)\\n  \\}`))?.[1];
   if (!bloco) throw new Error(`Tema "${nome}" não encontrado em theme.ts`);
-  return Object.fromEntries([...bloco.matchAll(/(\w+): '(#[0-9A-Fa-f]{6})'/g)].map((m) => [m[1], m[2]]));
+  return Object.fromEntries(
+    [...bloco.matchAll(/(\w+): '(#[0-9A-Fa-f]{6})'/g)].map((m) => [m[1], m[2]]),
+  );
 }
 
 const luminancia = (hex) => {
@@ -51,12 +53,17 @@ let falhas = 0;
 for (const nome of ['light', 'dark']) {
   const tema = lerTema(nome);
   for (const [frente, fundo, minimo] of PARES) {
-    if (!tema[frente] || !tema[fundo]) throw new Error(`Token ausente no tema ${nome}: ${frente}/${fundo}`);
+    if (!tema[frente] || !tema[fundo])
+      throw new Error(`Token ausente no tema ${nome}: ${frente}/${fundo}`);
     const r = razao(tema[frente], tema[fundo]);
     const ok = r >= minimo;
     if (!ok) falhas++;
-    console.log(`${ok ? 'OK   ' : 'FALHA'} ${nome.padEnd(5)} ${`${frente} / ${fundo}`.padEnd(40)} ${r.toFixed(2)}:1 (mín ${minimo})`);
+    console.log(
+      `${ok ? 'OK   ' : 'FALHA'} ${nome.padEnd(5)} ${`${frente} / ${fundo}`.padEnd(40)} ${r.toFixed(2)}:1 (mín ${minimo})`,
+    );
   }
 }
-console.log(falhas ? `\n${falhas} par(es) abaixo do mínimo.` : '\nTodos os pares atendem ao WCAG 2.2.');
+console.log(
+  falhas ? `\n${falhas} par(es) abaixo do mínimo.` : '\nTodos os pares atendem ao WCAG 2.2.',
+);
 process.exitCode = falhas ? 1 : 0;

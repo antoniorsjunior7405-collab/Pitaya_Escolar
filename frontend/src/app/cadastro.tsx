@@ -31,7 +31,8 @@ export default function Cadastro() {
   const [erro, setErro] = useState<string>();
   const [carregando, setCarregando] = useState(false);
 
-  const erroSenha = senha.length > 0 && senha.length < 8 ? 'Use pelo menos 8 caracteres.' : undefined;
+  const erroSenha =
+    senha.length > 0 && senha.length < 8 ? 'Use pelo menos 8 caracteres.' : undefined;
   const pronto =
     nome.trim().length >= 2 &&
     email.includes('@') &&
@@ -76,7 +77,12 @@ export default function Cadastro() {
             ))}
           </View>
 
-          <TextField rotulo="Nome completo" value={nome} onChangeText={setNome} autoComplete="name" />
+          <TextField
+            rotulo="Nome completo"
+            value={nome}
+            onChangeText={setNome}
+            autoComplete="name"
+          />
           <TextField
             rotulo="E-mail"
             value={email}

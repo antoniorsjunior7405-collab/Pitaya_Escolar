@@ -48,7 +48,12 @@ export default function Alunos() {
             <ThemedText type="smallBold" style={styles.titulo}>
               Novo aluno
             </ThemedText>
-            <TextField rotulo="Nome completo" value={nome} onChangeText={setNome} autoComplete="off" />
+            <TextField
+              rotulo="Nome completo"
+              value={nome}
+              onChangeText={setNome}
+              autoComplete="off"
+            />
             {criar.isError ? (
               <ThemedText type="small" themeColor="danger" accessibilityRole="alert">
                 {mensagemDeErro(criar.error)}

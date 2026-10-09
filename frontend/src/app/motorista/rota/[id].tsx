@@ -48,7 +48,11 @@ export default function DetalheDaRota() {
   const avisarErro = (erro: unknown) =>
     Alert.alert('Não foi possível concluir', mensagemDeErro(erro));
 
-  const iniciar = useMutation({ mutationFn: () => iniciarViagem(id), onSuccess: atualizar, onError: avisarErro });
+  const iniciar = useMutation({
+    mutationFn: () => iniciarViagem(id),
+    onSuccess: atualizar,
+    onError: avisarErro,
+  });
   const finalizar = useMutation({
     mutationFn: (viagemId: string) => finalizarViagem(viagemId),
     onSuccess: () => {
@@ -65,14 +69,19 @@ export default function DetalheDaRota() {
   });
 
   function confirmarFinalizacao(viagemId: string) {
-    Alert.alert('Finalizar viagem?', 'Depois de finalizada, não é possível registrar mais embarques.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Finalizar', style: 'destructive', onPress: () => finalizar.mutate(viagemId) },
-    ]);
+    Alert.alert(
+      'Finalizar viagem?',
+      'Depois de finalizada, não é possível registrar mais embarques.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Finalizar', style: 'destructive', onPress: () => finalizar.mutate(viagemId) },
+      ],
+    );
   }
 
   if (rota.isPending) return <EstadoCarregando mensagem="Carregando rota…" />;
-  if (rota.isError) return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
+  if (rota.isError)
+    return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
 
   const { data } = rota;
   const aviso = AVISO_GPS[rastreamento];
@@ -87,7 +96,10 @@ export default function DetalheDaRota() {
         refreshing={rota.isRefetching}
         onRefresh={() => void rota.refetch()}
         ListEmptyComponent={
-          <EstadoVazio titulo="Sem alunos nesta rota" descricao="Peça à escola para incluir os alunos." />
+          <EstadoVazio
+            titulo="Sem alunos nesta rota"
+            descricao="Peça à escola para incluir os alunos."
+          />
         }
         ListHeaderComponent={
           <>
@@ -99,7 +111,9 @@ export default function DetalheDaRota() {
 
               {!emAndamento && (
                 <PrimaryButton
-                  titulo={viagem?.status === 'FINALIZADA' ? 'Iniciar nova viagem' : 'Iniciar viagem'}
+                  titulo={
+                    viagem?.status === 'FINALIZADA' ? 'Iniciar nova viagem' : 'Iniciar viagem'
+                  }
                   carregando={iniciar.isPending}
                   onPress={() => iniciar.mutate()}
                 />
@@ -135,7 +149,11 @@ export default function DetalheDaRota() {
         }
         renderItem={({ item }) => {
           const proximo: TipoEvento | null =
-            item.status === 'AGUARDANDO' ? 'EMBARCADO' : item.status === 'EMBARCADO' ? 'ENTREGUE' : null;
+            item.status === 'AGUARDANDO'
+              ? 'EMBARCADO'
+              : item.status === 'EMBARCADO'
+                ? 'ENTREGUE'
+                : null;
           const enviandoEste = evento.isPending && evento.variables?.alunoId === item.id;
           return (
             <Card>
@@ -150,10 +168,14 @@ export default function DetalheDaRota() {
               <StatusBadge status={emAndamento || viagem ? item.status : 'AGUARDANDO'} />
               {emAndamento && proximo ? (
                 <PrimaryButton
-                  titulo={proximo === 'EMBARCADO' ? `Embarcou: ${item.nome}` : `Entregue: ${item.nome}`}
+                  titulo={
+                    proximo === 'EMBARCADO' ? `Embarcou: ${item.nome}` : `Entregue: ${item.nome}`
+                  }
                   carregando={enviandoEste}
                   desabilitado={evento.isPending && !enviandoEste}
-                  onPress={() => evento.mutate({ viagemId: viagem.id, alunoId: item.id, tipo: proximo })}
+                  onPress={() =>
+                    evento.mutate({ viagemId: viagem.id, alunoId: item.id, tipo: proximo })
+                  }
                 />
               ) : null}
             </Card>

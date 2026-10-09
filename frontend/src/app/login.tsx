@@ -90,7 +90,12 @@ export default function Login() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  conteudo: { flexGrow: 1, justifyContent: 'center', paddingVertical: Spacing.four, gap: Spacing.three },
+  conteudo: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: Spacing.four,
+    gap: Spacing.three,
+  },
   formulario: { gap: Spacing.three, marginVertical: Spacing.three },
   centro: { textAlign: 'center' },
 });

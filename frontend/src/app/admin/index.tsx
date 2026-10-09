@@ -14,10 +14,22 @@ import { useResponsive } from '@/hooks/use-responsive';
 import { buscarOrganizacao, chavesAdmin } from '@/services/admin';
 
 const SECOES: { href: Href; titulo: string; descricao: string }[] = [
-  { href: '/admin/rotas', titulo: 'Rotas', descricao: 'Crie rotas e defina os alunos e a ordem de embarque.' },
-  { href: '/admin/alunos', titulo: 'Alunos', descricao: 'Cadastre alunos e vincule os responsáveis.' },
+  {
+    href: '/admin/rotas',
+    titulo: 'Rotas',
+    descricao: 'Crie rotas e defina os alunos e a ordem de embarque.',
+  },
+  {
+    href: '/admin/alunos',
+    titulo: 'Alunos',
+    descricao: 'Cadastre alunos e vincule os responsáveis.',
+  },
   { href: '/admin/veiculos', titulo: 'Veículos', descricao: 'Placas e modelos da frota.' },
-  { href: '/admin/pessoas', titulo: 'Pessoas', descricao: 'Motoristas e responsáveis da organização.' },
+  {
+    href: '/admin/pessoas',
+    titulo: 'Pessoas',
+    descricao: 'Motoristas e responsáveis da organização.',
+  },
 ];
 
 export default function PainelAdmin() {
@@ -27,7 +39,8 @@ export default function PainelAdmin() {
   const org = useQuery({ queryKey: chavesAdmin.organizacao, queryFn: buscarOrganizacao });
 
   if (org.isPending) return <EstadoCarregando />;
-  if (org.isError) return <EstadoErro erro={org.error} onTentarNovamente={() => void org.refetch()} />;
+  if (org.isError)
+    return <EstadoErro erro={org.error} onTentarNovamente={() => void org.refetch()} />;
 
   const { nome, codigoConvite } = org.data;
   const compartilhar = () =>

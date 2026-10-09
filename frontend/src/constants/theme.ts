@@ -105,5 +105,3 @@ export const Spacing = {
   five: 32,
   six: 64,
 } as const;
-
-

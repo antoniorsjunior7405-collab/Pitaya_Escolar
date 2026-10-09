@@ -38,7 +38,8 @@ export default function RotaAdmin() {
   });
 
   if (rota.isPending || alunos.isPending) return <EstadoCarregando />;
-  if (rota.isError) return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
+  if (rota.isError)
+    return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
   if (alunos.isError) {
     return <EstadoErro erro={alunos.error} onTentarNovamente={() => void alunos.refetch()} />;
   }

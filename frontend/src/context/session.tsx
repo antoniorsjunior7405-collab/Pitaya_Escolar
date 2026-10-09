@@ -39,9 +39,7 @@ type SessionContextValue = {
 const SessionContext = createContext<SessionContextValue | null>(null);
 
 type Restauracao =
-  | { tipo: 'ok'; me: MeResponse }
-  | { tipo: 'anonimo' }
-  | { tipo: 'indisponivel'; motivo: string };
+  { tipo: 'ok'; me: MeResponse } | { tipo: 'anonimo' } | { tipo: 'indisponivel'; motivo: string };
 
 // Função pura (sem estado do React): descobre se existe uma sessão válida salva.
 async function restaurarSessao(): Promise<Restauracao> {
@@ -82,8 +80,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
       else if (resultado.tipo === 'indisponivel') {
         setMotivoIndisponivel(resultado.motivo);
         setStatus('indisponivel');
-      }
-      else encerrarLocal();
+      } else encerrarLocal();
     },
     [aplicar, encerrarLocal],
   );

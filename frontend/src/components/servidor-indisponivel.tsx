@@ -38,12 +38,15 @@ export function ServidorIndisponivel() {
           {motivoIndisponivel ?? 'Verifique sua internet.'}
         </ThemedText>
         <ThemedText type="small" themeColor="textSecondary" style={styles.centro}>
-          Se o servidor estava parado, ele leva cerca de 1 minuto para iniciar. Vamos tentar de
-          novo automaticamente.
+          Se o servidor estava parado, ele leva cerca de 1 minuto para iniciar. Vamos tentar de novo
+          automaticamente.
         </ThemedText>
 
         {reconectando ? (
-          <View style={styles.linha} accessibilityRole="progressbar" accessibilityLabel="Reconectando">
+          <View
+            style={styles.linha}
+            accessibilityRole="progressbar"
+            accessibilityLabel="Reconectando">
             <ActivityIndicator color={theme.primary} />
             <ThemedText type="small" themeColor="textSecondary">
               Reconectando…

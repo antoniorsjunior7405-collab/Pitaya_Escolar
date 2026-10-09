@@ -15,7 +15,13 @@ import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
 import { mensagemDeErro } from '@/lib/http';
-import { chavesAdmin, criarRota, listarMembros, listarRotas, listarVeiculos } from '@/services/admin';
+import {
+  chavesAdmin,
+  criarRota,
+  listarMembros,
+  listarRotas,
+  listarVeiculos,
+} from '@/services/admin';
 import type { Periodo } from '@/types';
 
 const PERIODOS: { valor: Periodo; rotulo: string }[] = [
@@ -77,7 +83,12 @@ export default function RotasAdmin() {
             <ThemedText type="smallBold" style={styles.titulo}>
               Nova rota
             </ThemedText>
-            <TextField rotulo="Nome" value={nome} onChangeText={setNome} placeholder="Rota Manhã - Centro" />
+            <TextField
+              rotulo="Nome"
+              value={nome}
+              onChangeText={setNome}
+              placeholder="Rota Manhã - Centro"
+            />
             <Seletor rotulo="Período" opcoes={PERIODOS} valor={periodo} onChange={setPeriodo} />
             <Seletor
               rotulo="Motorista"
@@ -88,7 +99,10 @@ export default function RotasAdmin() {
             />
             <Seletor
               rotulo="Veículo"
-              opcoes={(veiculos.data ?? []).map((v) => ({ valor: v.id, rotulo: `${v.placa} · ${v.modelo}` }))}
+              opcoes={(veiculos.data ?? []).map((v) => ({
+                valor: v.id,
+                rotulo: `${v.placa} · ${v.modelo}`,
+              }))}
               valor={veiculoId}
               onChange={setVeiculoId}
               vazio="Nenhum veículo: cadastre em Veículos."

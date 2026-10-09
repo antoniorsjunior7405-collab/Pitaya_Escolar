@@ -37,7 +37,8 @@ export default function AlunoAdmin() {
   });
 
   if (aluno.isPending) return <EstadoCarregando />;
-  if (aluno.isError) return <EstadoErro erro={aluno.error} onTentarNovamente={() => void aluno.refetch()} />;
+  if (aluno.isError)
+    return <EstadoErro erro={aluno.error} onTentarNovamente={() => void aluno.refetch()} />;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>

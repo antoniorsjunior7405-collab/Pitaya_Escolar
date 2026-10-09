@@ -24,7 +24,8 @@ export default function MinhasRotas() {
   const rotas = useQuery({ queryKey: chavesMotorista.rotas, queryFn: listarRotas });
 
   if (rotas.isPending) return <EstadoCarregando mensagem="Carregando suas rotas…" />;
-  if (rotas.isError) return <EstadoErro erro={rotas.error} onTentarNovamente={() => void rotas.refetch()} />;
+  if (rotas.isError)
+    return <EstadoErro erro={rotas.error} onTentarNovamente={() => void rotas.refetch()} />;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -61,7 +62,10 @@ export default function MinhasRotas() {
         )}
         ListFooterComponent={
           <View style={styles.rodape}>
-            <PrimaryButton titulo="Ver histórico" onPress={() => router.push('/motorista/historico')} />
+            <PrimaryButton
+              titulo="Ver histórico"
+              onPress={() => router.push('/motorista/historico')}
+            />
             <PrimaryButton titulo="Sair" variante="secundario" onPress={() => void sair()} />
           </View>
         }
