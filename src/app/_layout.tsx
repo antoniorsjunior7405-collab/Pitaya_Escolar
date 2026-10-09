@@ -1,18 +1,14 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { Stack } from 'expo-router';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
-
-SplashScreen.preventAutoHideAsync();
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+// Layout raiz: um Stack (pilha de telas).
+// "motorista" e "responsavel" são pastas com o próprio _layout, que têm o seu Stack.
+// Por isso o cabeçalho delas é desligado aqui, para não aparecer dois cabeçalhos.
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <Stack>
+      <Stack.Screen name="index" options={{ title: 'Pitaya Escolar' }} />
+      <Stack.Screen name="motorista" options={{ headerShown: false }} />
+      <Stack.Screen name="responsavel" options={{ headerShown: false }} />
+    </Stack>
   );
 }
