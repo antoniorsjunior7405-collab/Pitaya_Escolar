@@ -1,4 +1,4 @@
-import { ApiError, http } from '@/lib/http';
+import { ApiError, http, TIMEOUT_LONGO_MS } from '@/lib/http';
 import { apagarRefreshToken, lerRefreshToken, salvarRefreshToken } from '@/lib/token-storage';
 import type { Tokens } from '@/types/api';
 
@@ -37,6 +37,7 @@ export function renovarTokens(): Promise<string | null> {
       const tokens = await http<Tokens>('/v1/auth/refresh', {
         method: 'POST',
         body: { refreshToken },
+        timeoutMs: TIMEOUT_LONGO_MS,
       });
       await guardarTokens(tokens);
       return tokens.accessToken;

@@ -1,11 +1,11 @@
-import { ApiError, http } from '@/lib/http';
+import { ApiError, http, type OpcoesHttp } from '@/lib/http';
 import { getAccessToken, renovarTokens } from '@/lib/session-tokens';
 
 // Cliente autenticado: todas as telas/serviços chamam a API por aqui.
 // Anexa o access token e, se o servidor responder 401 (token expirado), renova a
 // sessão uma vez e repete a chamada.
 
-type Opcoes = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown };
+type Opcoes = Omit<OpcoesHttp, 'headers'>;
 
 const comToken = (token: string | null) =>
   token ? { Authorization: `Bearer ${token}` } : undefined;

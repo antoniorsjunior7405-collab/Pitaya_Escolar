@@ -1,8 +1,13 @@
 // Camada HTTP de baixo nível, sem autenticação: monta a URL, aplica timeout e
 // transforma qualquer falha em ApiError com mensagem pronta para o usuário.
 
-// No plano gratuito o servidor "dorme" e a primeira chamada pode levar cerca de 1 minuto.
-const TIMEOUT_MS = 60_000;
+/** Operações do dia a dia: se passar disso, é melhor avisar do que deixar a pessoa esperando. */
+const TIMEOUT_PADRAO_MS = 30_000;
+/**
+ * Login, cadastro e restauração da sessão são as primeiras chamadas depois que o servidor
+ * gratuito "acorda" (o Render leva cerca de 1 minuto): esperamos mais nelas.
+ */
+export const TIMEOUT_LONGO_MS = 90_000;
 
 export type ApiErrorCode = 'NETWORK' | 'TIMEOUT' | 'CONFIG' | 'HTTP';
 
@@ -22,24 +27,29 @@ export class ApiError extends Error {
   }
 }
 
-type Opcoes = {
+export type OpcoesHttp = {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   headers?: Record<string, string>;
+  timeoutMs?: number;
 };
 
 function baseUrl(): string {
   // Acesso estático: o Expo só substitui process.env.EXPO_PUBLIC_* escrito assim.
   const url = process.env.EXPO_PUBLIC_API_URL;
   if (!url) {
-    throw new ApiError(0, 'CONFIG', 'URL da API não configurada (EXPO_PUBLIC_API_URL).');
+    throw new ApiError(
+      0,
+      'CONFIG',
+      'O app está sem o endereço do servidor (EXPO_PUBLIC_API_URL). Rode o app pela pasta frontend.',
+    );
   }
   return url.replace(/\/+$/, '');
 }
 
-export async function http<T>(path: string, opcoes: Opcoes = {}): Promise<T> {
+export async function http<T>(path: string, opcoes: OpcoesHttp = {}): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), opcoes.timeoutMs ?? TIMEOUT_PADRAO_MS);
 
   try {
     const resposta = await fetch(`${baseUrl()}${path}`, {
@@ -68,7 +78,10 @@ export async function http<T>(path: string, opcoes: Opcoes = {}): Promise<T> {
       throw new ApiError(
         resposta.status,
         erro.code ?? 'HTTP',
-        erro.message ?? 'Não foi possível concluir a operação.',
+        erro.message ??
+          (resposta.status >= 500
+            ? 'O servidor está fora do ar ou iniciando. Tente novamente em instantes.'
+            : 'Não foi possível concluir a operação.'),
       );
     }
     return json as T;

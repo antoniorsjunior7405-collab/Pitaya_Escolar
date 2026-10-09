@@ -8,7 +8,7 @@ import {
   type PropsWithChildren,
 } from 'react';
 
-import { ApiError } from '@/lib/http';
+import { ApiError, mensagemDeErro } from '@/lib/http';
 import { aoSessaoExpirar } from '@/lib/api';
 import { queryClient } from '@/lib/query-client';
 import { renovarTokens } from '@/lib/session-tokens';
@@ -29,12 +29,19 @@ type SessionContextValue = {
   entrar: (email: string, senha: string) => Promise<void>;
   cadastrar: (dados: CadastroInput) => Promise<void>;
   sair: () => Promise<void>;
+  /** Só em 'indisponivel': por que não conectou (sem internet, servidor iniciando...). */
+  motivoIndisponivel: string | null;
+  /** Tentando reconectar agora (a tela de indisponível mostra um indicador, sem sumir). */
+  reconectando: boolean;
   tentarNovamente: () => Promise<void>;
 };
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-type Restauracao = { tipo: 'ok'; me: MeResponse } | { tipo: 'anonimo' } | { tipo: 'indisponivel' };
+type Restauracao =
+  | { tipo: 'ok'; me: MeResponse }
+  | { tipo: 'anonimo' }
+  | { tipo: 'indisponivel'; motivo: string };
 
 // Função pura (sem estado do React): descobre se existe uma sessão válida salva.
 async function restaurarSessao(): Promise<Restauracao> {
@@ -43,13 +50,19 @@ async function restaurarSessao(): Promise<Restauracao> {
     if (!token) return { tipo: 'anonimo' };
     return { tipo: 'ok', me: await buscarMe() };
   } catch (erro) {
-    return erro instanceof ApiError && erro.indisponivel ? { tipo: 'indisponivel' } : { tipo: 'anonimo' };
+    // Sem conexão/servidor fora: a sessão salva pode estar ótima, então NÃO deslogamos.
+    if (erro instanceof ApiError && erro.indisponivel) {
+      return { tipo: 'indisponivel', motivo: mensagemDeErro(erro) };
+    }
+    return { tipo: 'anonimo' };
   }
 }
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<Status>('carregando');
   const [dados, setDados] = useState<MeResponse | null>(null);
+  const [motivoIndisponivel, setMotivoIndisponivel] = useState<string | null>(null);
+  const [reconectando, setReconectando] = useState(false);
 
   const aplicar = useCallback((me: MeResponse) => {
     setDados(me);
@@ -66,7 +79,10 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const aplicarRestauracao = useCallback(
     (resultado: Restauracao) => {
       if (resultado.tipo === 'ok') aplicar(resultado.me);
-      else if (resultado.tipo === 'indisponivel') setStatus('indisponivel');
+      else if (resultado.tipo === 'indisponivel') {
+        setMotivoIndisponivel(resultado.motivo);
+        setStatus('indisponivel');
+      }
       else encerrarLocal();
     },
     [aplicar, encerrarLocal],
@@ -96,12 +112,20 @@ export function SessionProvider({ children }: PropsWithChildren) {
         await sair();
         encerrarLocal();
       },
+      motivoIndisponivel,
+      reconectando,
       tentarNovamente: async () => {
-        setStatus('carregando');
-        aplicarRestauracao(await restaurarSessao());
+        // Fica na tela de indisponível (com indicador) em vez de voltar para 'carregando',
+        // que não desenha nada e parecia o app travado.
+        setReconectando(true);
+        try {
+          aplicarRestauracao(await restaurarSessao());
+        } finally {
+          setReconectando(false);
+        }
       },
     }),
-    [status, dados, aplicar, encerrarLocal, aplicarRestauracao],
+    [status, dados, motivoIndisponivel, reconectando, aplicar, encerrarLocal, aplicarRestauracao],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
