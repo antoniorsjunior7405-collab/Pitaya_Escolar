@@ -9,8 +9,17 @@ const schema = z.object({
   CORS_ORIGINS: z
     .string()
     .default('')
-    .transform((v) => v.split(',').map((s) => s.trim()).filter(Boolean)),
+    .transform((v) =>
+      v
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
   DATABASE_URL: z.string().min(1).optional(),
+  // Segredo que assina os tokens de acesso. Mínimo de 32 caracteres.
+  JWT_SECRET: z.string().min(32),
+  ACCESS_TOKEN_TTL: z.string().default('15m'),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 export const config = schema.parse(process.env);

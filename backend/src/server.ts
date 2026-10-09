@@ -1,16 +1,41 @@
 import { buildApp } from './app.js';
 import { config } from './config/index.js';
+import { createDb } from './db/index.js';
+import { createAuthRepository } from './modules/auth/index.js';
 
-const app = await buildApp();
+const { db, pool } = createDb();
+const app = await buildApp({ authRepository: createAuthRepository(db) });
 
-// Shutdown gracioso: para de aceitar conexões e termina as em andamento.
-for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-  process.on(signal, async () => {
-    app.log.info({ signal }, 'encerrando');
+// Shutdown gracioso: para de aceitar conexões, termina as em andamento e fecha o banco.
+let encerrando = false;
+async function encerrar(motivo: string, codigo: number) {
+  if (encerrando) return;
+  encerrando = true;
+  app.log.info({ motivo }, 'encerrando');
+  // Se algo travar no encerramento, não ficamos pendurados para sempre.
+  setTimeout(() => process.exit(codigo || 1), 10_000).unref();
+  try {
     await app.close();
-    process.exit(0);
-  });
+    await pool.end();
+  } finally {
+    process.exit(codigo);
+  }
 }
+
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => void encerrar(signal, 0));
+}
+
+// Erro que ninguém tratou deixa o processo em estado incerto: logamos e saímos
+// (o Render reinicia o serviço). Não seguimos rodando.
+process.on('unhandledRejection', (reason) => {
+  app.log.fatal({ err: reason }, 'unhandledRejection');
+  void encerrar('unhandledRejection', 1);
+});
+process.on('uncaughtException', (err) => {
+  app.log.fatal({ err }, 'uncaughtException');
+  void encerrar('uncaughtException', 1);
+});
 
 try {
   await app.listen({ host: config.HOST, port: config.PORT });

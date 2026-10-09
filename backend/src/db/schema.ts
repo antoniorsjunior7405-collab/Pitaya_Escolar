@@ -52,6 +52,8 @@ const criadoEm = () => timestamp('criado_em', { withTimezone: true }).notNull().
 export const organizacoes = pgTable('organizacoes', {
   id: uuid().primaryKey().defaultRandom(),
   nome: text().notNull(),
+  // Código que motoristas e responsáveis informam no cadastro para entrar na organização.
+  codigoConvite: text('codigo_convite').notNull().unique(),
   ativa: boolean().notNull().default(true),
   criadoEm: criadoEm(),
 });
@@ -67,6 +69,22 @@ export const usuarios = pgTable('usuarios', {
   superAdmin: boolean('super_admin').notNull().default(false),
   criadoEm: criadoEm(),
 });
+
+// Refresh tokens: guardamos só o hash (SHA-256). O token em si só existe no app.
+export const refreshTokens = pgTable(
+  'refresh_tokens',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    usuarioId: uuid('usuario_id')
+      .notNull()
+      .references(() => usuarios.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+    revogadoEm: timestamp('revogado_em', { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index('refresh_tokens_usuario_idx').on(t.usuarioId)],
+);
 
 // Vínculo usuário ↔ organização com o papel naquela organização.
 export const membros = pgTable(

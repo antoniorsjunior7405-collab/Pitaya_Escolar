@@ -8,6 +8,13 @@
       "when": 1791563934570,
       "tag": "0000_silent_tomorrow_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791565827396,
+      "tag": "0001_brief_joystick",
+      "breakpoints": true
     }
   ]
 }
