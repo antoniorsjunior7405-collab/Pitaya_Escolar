@@ -27,6 +27,13 @@ export class ForbiddenError extends AppError {
   }
 }
 
+/** A requisição é válida, mas fere uma regra de negócio (ex.: entregar aluno que não embarcou). */
+export class RegraDeNegocioError extends AppError {
+  constructor(message: string) {
+    super('REGRA_DE_NEGOCIO', message, 422);
+  }
+}
+
 export class ConflictError extends AppError {
   constructor(message = 'Conflito') {
     super('CONFLICT', message, 409);

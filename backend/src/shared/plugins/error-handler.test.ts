@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildApp } from '../../app.js';
 import { criarFakeAuthRepository } from '../../test-utils/fake-auth-repository.js';
+import { depsDeTeste } from '../../test-utils/deps.js';
 
-const novoApp = () => buildApp({ authRepository: criarFakeAuthRepository().repo });
+const novoApp = () => buildApp(depsDeTeste({ authRepository: criarFakeAuthRepository().repo }));
 
 test('rate limit estourado responde 429 (e não 500) no formato padrão', async () => {
   const app = await novoApp();

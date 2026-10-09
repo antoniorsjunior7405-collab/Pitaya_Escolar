@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildApp } from '../../app.js';
 import { criarFakeAuthRepository } from '../../test-utils/fake-auth-repository.js';
+import { depsDeTeste } from '../../test-utils/deps.js';
 import { hashSenha, verificarSenha } from './password.js';
 
 async function novoApp() {
   const fake = criarFakeAuthRepository();
-  const app = await buildApp({ authRepository: fake.repo });
+  const app = await buildApp(depsDeTeste({ authRepository: fake.repo }));
   return { app, fake };
 }
 

@@ -20,6 +20,8 @@ const schema = z.object({
   JWT_SECRET: z.string().min(32),
   ACCESS_TOKEN_TTL: z.string().default('15m'),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
+  // Fuso usado para "hoje" nas viagens (o servidor roda em UTC).
+  TZ_NEGOCIO: z.string().default('America/Sao_Paulo'),
 });
 
 export const config = schema.parse(process.env);
