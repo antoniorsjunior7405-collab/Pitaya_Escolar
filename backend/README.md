@@ -12,6 +12,16 @@ npm run dev            # http://localhost:3333/health
 
 Scripts: `dev`, `build`, `start`, `typecheck`, `test`.
 
+## Auditoria de segurança
+
+Somente leitura: confere a configuração, a integridade do banco (isolamento entre organizações, LGPD, contas) e, com `--url`, a API no ar (headers, CORS, autenticação, formato dos erros). Mostra só contagens, nunca dados pessoais, e sai com código 1 se houver falha.
+
+```bash
+npm run audit:seguranca                                                 # config + banco
+npm run audit:seguranca -- --url https://pitaya-escolar.onrender.com   # + API em produção
+npm run audit:seguranca -- --sem-banco --url http://localhost:3333     # só config + API local
+```
+
 ## Estrutura
 
 `src/app.ts` monta a aplicação, `src/server.ts` sobe o servidor, `src/config/` valida o ambiente, `src/modules/<dominio>/` contém cada componente de negócio e `src/shared/` o código comum.
