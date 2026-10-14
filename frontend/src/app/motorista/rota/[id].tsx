@@ -85,6 +85,8 @@ export default function DetalheDaRota() {
 
   const { data } = rota;
   const aviso = AVISO_GPS[rastreamento];
+  // Só falhas são anunciadas como alerta; avisos informativos não interrompem o leitor de tela.
+  const avisoEhFalha = rastreamento === 'sem-permissao' || rastreamento === 'erro';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -129,8 +131,8 @@ export default function DetalheDaRota() {
               {aviso ? (
                 <ThemedText
                   type="small"
-                  accessibilityRole="alert"
-                  themeColor={rastreamento === 'ativo' ? 'textSecondary' : 'danger'}>
+                  accessibilityRole={avisoEhFalha ? 'alert' : undefined}
+                  themeColor={avisoEhFalha ? 'danger' : 'textSecondary'}>
                   {aviso}
                 </ThemedText>
               ) : null}

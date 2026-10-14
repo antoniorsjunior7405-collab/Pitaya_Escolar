@@ -1,0 +1,9 @@
+# LF em todos os sistemas: o Prettier exige LF e, sem isto, o core.autocrlf do Windows
+# faz o checkout em CRLF e quebra o `npm run check`.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.otf binary
