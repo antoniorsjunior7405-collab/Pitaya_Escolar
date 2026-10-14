@@ -28,7 +28,9 @@ export function StatusBadge({ status }: { status: Status }) {
       accessibilityLabel={`Status: ${rotulo}`}
       style={[styles.badge, { backgroundColor: theme[`status${tom}Bg`] }]}>
       <View style={[styles.ponto, { backgroundColor: theme[`status${tom}Text`] }]} />
-      <Text style={[styles.texto, { color: theme[`status${tom}Text`] }]}>{rotulo}</Text>
+      <Text maxFontSizeMultiplier={2} style={[styles.texto, { color: theme[`status${tom}Text`] }]}>
+        {rotulo}
+      </Text>
     </View>
   );
 }

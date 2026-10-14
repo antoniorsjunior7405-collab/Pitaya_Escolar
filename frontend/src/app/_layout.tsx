@@ -1,5 +1,6 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { SplashScreen, Stack } from 'expo-router';
+import { useEffect } from 'react';
 
 import { ServidorIndisponivel } from '@/components/servidor-indisponivel';
 import { SessionProvider, useSession } from '@/context/session';
@@ -13,9 +14,12 @@ function Navegador() {
   const { status, papel } = useSession();
   const opcoes = useStackOptions();
 
-  if (status === 'carregando') return null;
-  SplashScreen.hide();
+  // Esconder a splash é efeito colateral: fica fora do render (componentes puros).
+  useEffect(() => {
+    if (status !== 'carregando') SplashScreen.hide();
+  }, [status]);
 
+  if (status === 'carregando') return null;
   if (status === 'indisponivel') return <ServidorIndisponivel />;
 
   const autenticado = status === 'autenticado';
