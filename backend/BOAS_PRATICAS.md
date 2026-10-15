@@ -163,6 +163,7 @@ Do guia oficial do Node e do nodebestpractices:
 - Rodar como **usuário não-root**. Considerar o **Permission Model** do Node (`--permission`) para limitar acesso a arquivos/rede/processos.
 - Erros sem detalhes internos; sem informações da stack em headers (`X-Powered-By`).
 - Anexe `requestId` e **auditoria** para ações sensíveis (login, alteração de vínculo responsável–aluno, ações de admin).
+- Rode `npm run audit:seguranca` (com `--url` da API) antes de cada deploy e após mudanças no schema. Nova regra de segurança verificável (config, isolamento no banco, header)? Adicione-a em `src/scripts/auditoria/` com teste.
 
 ## 13. Notificações e tempo real
 

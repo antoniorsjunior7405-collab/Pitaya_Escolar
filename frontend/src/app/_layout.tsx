@@ -31,7 +31,11 @@ function Navegador() {
       <Stack.Protected guard={!autenticado}>
         <Stack.Screen name="login" options={{ title: 'Entrar' }} />
         <Stack.Screen name="cadastro" options={{ title: 'Criar conta' }} />
+        <Stack.Screen name="esqueci-senha" options={{ title: 'Esqueci a senha' }} />
       </Stack.Protected>
+
+      {/* Aberta pelo link do e-mail: precisa funcionar logado ou não. */}
+      <Stack.Screen name="redefinir-senha" options={{ title: 'Nova senha' }} />
 
       <Stack.Protected guard={autenticado}>
         <Stack.Screen name="index" options={{ headerShown: false }} />

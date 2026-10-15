@@ -18,6 +18,11 @@ export const cadastroBody = z.object({
 export const loginBody = z.object({ email, senha: z.string().min(1).max(128) });
 export const refreshBody = z.object({ refreshToken: z.string().min(20).max(200) });
 
+// Recuperação de senha. A nova senha segue a MESMA regra do cadastro (constante `senha`).
+export const esqueciSenhaBody = z.object({ email });
+export const redefinirSenhaBody = z.object({ token: z.string().min(20).max(200), senha });
+export const pedidoRecebidoResponse = z.object({ mensagem: z.string() });
+
 const usuarioPublico = z.object({
   id: z.uuid(),
   nome: z.string(),

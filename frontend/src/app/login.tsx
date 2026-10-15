@@ -79,6 +79,9 @@ export default function Login() {
             ) : null}
           </View>
 
+          <Link href="/esqueci-senha" style={styles.centro}>
+            <ThemedText type="link">Esqueci a senha</ThemedText>
+          </Link>
           <Link href="/cadastro" style={styles.centro}>
             <ThemedText type="link">Não tem conta? Criar conta</ThemedText>
           </Link>

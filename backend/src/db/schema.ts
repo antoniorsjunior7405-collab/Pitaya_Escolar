@@ -89,6 +89,23 @@ export const refreshTokens = pgTable(
   (t) => [index('refresh_tokens_usuario_idx').on(t.usuarioId)],
 );
 
+// Pedidos de "esqueci a senha". Como no refresh token, guardamos só o hash (SHA-256): quem
+// ler a tabela não consegue usar os links. Uso único (usado_em) e validade curta (expira_em).
+export const recuperacoesSenha = pgTable(
+  'recuperacoes_senha',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    usuarioId: uuid('usuario_id')
+      .notNull()
+      .references(() => usuarios.id, { onDelete: 'cascade' }),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+    usadoEm: timestamp('usado_em', { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [index('recuperacoes_senha_usuario_idx').on(t.usuarioId, t.criadoEm)],
+);
+
 // Vínculo usuário ↔ organização com o papel naquela organização.
 export const membros = pgTable(
   'membros',

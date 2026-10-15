@@ -29,6 +29,13 @@
       "when": 1791572438526,
       "tag": "0003_limpa_posicoes_antigas",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792010767045,
+      "tag": "0004_recuperacao_senha",
+      "breakpoints": true
     }
   ]
 }

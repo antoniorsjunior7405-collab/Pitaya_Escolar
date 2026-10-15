@@ -22,7 +22,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm test",
-    "seed:demo": "node --env-file=.env --import tsx src/scripts/criar-demo.ts"
+    "seed:demo": "node --env-file=.env --import tsx src/scripts/criar-demo.ts",
+    "audit:seguranca": "node --env-file-if-exists=.env --import tsx src/scripts/auditoria-seguranca.ts",
+    "audit:recuperacao": "node --import tsx src/scripts/auditoria-recuperacao.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",

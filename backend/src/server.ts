@@ -2,17 +2,28 @@ import { buildApp } from './app.js';
 import { config } from './config/index.js';
 import { createDb } from './db/index.js';
 import { createAdminRepository } from './modules/admin/index.js';
-import { createAuthRepository } from './modules/auth/index.js';
+import { createAuthRepository, createRecuperacaoRepository } from './modules/auth/index.js';
 import { createMotoristaRepository } from './modules/motorista/index.js';
 import { createResponsavelRepository } from './modules/responsavel/index.js';
+import { criarEnviadorResend } from './shared/email/email.js';
 
 const { db, pool } = createDb();
 const app = await buildApp({
   authRepository: createAuthRepository(db),
+  recuperacaoRepository: createRecuperacaoRepository(db),
+  // Sem chave, o buildApp usa o log (em desenvolvimento mostra o link para testar).
+  ...(config.EMAIL_RESEND_API_KEY && {
+    enviadorEmail: criarEnviadorResend(config.EMAIL_RESEND_API_KEY, config.EMAIL_REMETENTE),
+  }),
   motoristaRepository: createMotoristaRepository(db),
   responsavelRepository: createResponsavelRepository(db),
   adminRepository: createAdminRepository(db),
 });
+if (!config.EMAIL_RESEND_API_KEY && config.NODE_ENV === 'production') {
+  app.log.warn(
+    'EMAIL_RESEND_API_KEY ausente: os e-mails de recuperação de senha não serão enviados',
+  );
+}
 
 // Shutdown gracioso: para de aceitar conexões, termina as em andamento e fecha o banco.
 let encerrando = false;

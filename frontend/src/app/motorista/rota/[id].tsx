@@ -3,6 +3,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { Alert, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { AvisoRastreamento } from '@/components/aviso-rastreamento';
 import { StatusBadge } from '@/components/status-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { EstadoErro } from '@/components/ui/estado-erro';
 import { EstadoVazio } from '@/components/ui/estado-vazio';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Spacing } from '@/constants/theme';
-import { useRastreamentoViagem, type EstadoRastreamento } from '@/hooks/use-rastreamento-viagem';
+import { useRastreamentoViagem } from '@/hooks/use-rastreamento-viagem';
 import { useResponsive } from '@/hooks/use-responsive';
 import { mensagemDeErro } from '@/lib/http';
 import {
@@ -22,15 +23,6 @@ import {
   registrarEvento,
 } from '@/services/motorista';
 import type { TipoEvento } from '@/types';
-
-const AVISO_GPS: Record<EstadoRastreamento, string | null> = {
-  inativo: null,
-  'aguardando-gps': 'Obtendo sua localização…',
-  ativo: 'Localização sendo compartilhada com os responsáveis. Mantenha o app aberto.',
-  'sem-permissao':
-    'Sem permissão de localização: os responsáveis não verão o veículo no mapa. Ative nas configurações do aparelho.',
-  erro: 'Falha ao enviar a localização. Tentando novamente…',
-};
 
 // Tela de uma rota: iniciar a viagem, marcar embarque/entrega e finalizar.
 // As regras (RN-08 etc.) são validadas no backend; aqui a interface só guia o motorista.
@@ -84,9 +76,6 @@ export default function DetalheDaRota() {
     return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
 
   const { data } = rota;
-  const aviso = AVISO_GPS[rastreamento];
-  // Só falhas são anunciadas como alerta; avisos informativos não interrompem o leitor de tela.
-  const avisoEhFalha = rastreamento === 'sem-permissao' || rastreamento === 'erro';
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -128,14 +117,7 @@ export default function DetalheDaRota() {
                   onPress={() => confirmarFinalizacao(viagem.id)}
                 />
               )}
-              {aviso ? (
-                <ThemedText
-                  type="small"
-                  accessibilityRole={avisoEhFalha ? 'alert' : undefined}
-                  themeColor={avisoEhFalha ? 'danger' : 'textSecondary'}>
-                  {aviso}
-                </ThemedText>
-              ) : null}
+              <AvisoRastreamento estado={rastreamento} />
             </Card>
             <ThemedText type="subtitle" style={styles.secao}>
               Alunos
