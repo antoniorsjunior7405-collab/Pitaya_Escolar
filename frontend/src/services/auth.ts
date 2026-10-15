@@ -30,6 +30,28 @@ export function buscarMe(): Promise<MeResponse> {
   return api<MeResponse>('/v1/auth/me', { timeoutMs: TIMEOUT_LONGO_MS });
 }
 
+/**
+ * Pede o link de redefinição. O servidor responde igual exista o e-mail ou não; devolvemos a
+ * mensagem dele para a tela mostrar.
+ */
+export async function pedirRecuperacao(email: string): Promise<string> {
+  const { mensagem } = await http<{ mensagem: string }>('/v1/auth/esqueci-senha', {
+    method: 'POST',
+    body: { email },
+    timeoutMs: TIMEOUT_LONGO_MS,
+  });
+  return mensagem;
+}
+
+/** Troca a senha com o token do link. O token vai no corpo, nunca na URL da API. */
+export function redefinirSenha(token: string, senha: string): Promise<void> {
+  return http<void>('/v1/auth/redefinir-senha', {
+    method: 'POST',
+    body: { token, senha },
+    timeoutMs: TIMEOUT_LONGO_MS,
+  });
+}
+
 /** Revoga a sessão no servidor (best effort) e apaga os tokens do aparelho. */
 export async function sair(): Promise<void> {
   const refreshToken = await lerRefreshToken();
