@@ -164,18 +164,24 @@ export const veiculos = pgTable(
   ],
 );
 
+// Aluno da ESCOLA (organizacao_id preenchido, cadastrado pelo admin) ou da FAMÍLIA
+// (organizacao_id NULL, cadastrado pelo próprio responsável: gestão direta família–motorista).
+// O aluno da família não aparece para nenhuma escola nem motorista até um vínculo aceito.
 export const alunos = pgTable(
   'alunos',
   {
     id: uuid().primaryKey().defaultRandom(),
-    organizacaoId: uuid('organizacao_id')
-      .notNull()
-      .references(() => organizacoes.id),
+    organizacaoId: uuid('organizacao_id').references(() => organizacoes.id),
+    // Quem cadastrou, quando foi a família. NULL no aluno da escola.
+    criadoPor: uuid('criado_por').references(() => usuarios.id, { onDelete: 'set null' }),
     nome: text().notNull(),
     ativo: boolean().notNull().default(true),
     criadoEm: criadoEm(),
   },
-  (t) => [index('alunos_organizacao_idx').on(t.organizacaoId)],
+  (t) => [
+    index('alunos_organizacao_idx').on(t.organizacaoId),
+    index('alunos_criado_por_idx').on(t.criadoPor),
+  ],
 );
 
 // Um aluno pode ter vários responsáveis, e um responsável vários filhos.
@@ -189,13 +195,24 @@ export const responsaveisAlunos = pgTable(
       .notNull()
       .references(() => usuarios.id, { onDelete: 'cascade' }),
     parentesco: text(),
-    // Só responsáveis autorizados enxergam localização e status (orçamento).
-    autorizado: boolean().notNull().default(true),
+    // Só responsáveis autorizados enxergam localização e status. Nasce FALSE: quem cria o
+    // vínculo (admin, ou a família ao cadastrar o próprio filho) autoriza de forma explícita.
+    // Assim um vínculo novo nunca sai vendo a criança sem alguém aprovar.
+    autorizado: boolean().notNull().default(false),
+    // Consentimento do responsável para o tratamento dos dados da criança (LGPD, art. 14),
+    // com a versão do termo aceito. Preenchido quando a família cadastra o filho.
+    consentimentoEm: timestamp('consentimento_em', { withTimezone: true }),
+    termoVersao: text('termo_versao'),
     criadoEm: criadoEm(),
   },
   (t) => [
     primaryKey({ columns: [t.alunoId, t.responsavelId] }),
     index('responsaveis_alunos_responsavel_idx').on(t.responsavelId),
+    // Consentimento sem a versão do termo (ou o contrário) não prova o que foi aceito.
+    check(
+      'responsaveis_alunos_consentimento_check',
+      sql`(${t.consentimentoEm} IS NULL) = (${t.termoVersao} IS NULL)`,
+    ),
   ],
 );
 
@@ -363,5 +380,29 @@ export const notificacoes = pgTable(
     index('notificacoes_usuario_idx').on(t.usuarioId, t.criadoEm),
     index('notificacoes_viagem_idx').on(t.viagemId),
     index('notificacoes_aluno_idx').on(t.alunoId),
+  ],
+);
+
+// ── Auditoria ────────────────────────────────────────────────────────────────
+
+// Quem fez o quê, e quando, nas ações sensíveis (cadastro, edição e exclusão de aluno...).
+// Sem dados pessoais: só ids e a ação. entidade_id não tem FK de propósito: o registro
+// precisa sobreviver à exclusão do que ele descreve.
+export const registrosAuditoria = pgTable(
+  'registros_auditoria',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    usuarioId: uuid('usuario_id').references(() => usuarios.id, { onDelete: 'set null' }),
+    organizacaoId: uuid('organizacao_id').references(() => organizacoes.id, {
+      onDelete: 'set null',
+    }),
+    acao: text().notNull(),
+    entidade: text().notNull(),
+    entidadeId: uuid('entidade_id').notNull(),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    index('registros_auditoria_entidade_idx').on(t.entidade, t.entidadeId),
+    index('registros_auditoria_usuario_idx').on(t.usuarioId, t.criadoEm),
   ],
 );

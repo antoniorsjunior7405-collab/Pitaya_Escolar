@@ -53,12 +53,30 @@ test('banco: tudo zerado → todas as verificações OK', async () => {
 });
 
 test('banco: vazamento entre organizações vira FALHA com a contagem, sem dados pessoais', async () => {
-  const { pool } = poolFalso((sql) => (sql.includes('FROM responsaveis_alunos') ? 3 : 0));
+  const { pool } = poolFalso((sql) => (sql.includes("m.papel = 'RESPONSAVEL'") ? 3 : 0));
   const resultados = await verificarBanco(pool);
   const r = resultados.find((x) => x.item === 'Responsável vinculado a aluno de outra organização');
   assert.equal(r?.nivel, 'FALHA');
   assert.match(r?.detalhe ?? '', /^3 /);
   assert.equal(resultados.filter((x) => x.nivel !== 'OK').length, 1);
+});
+
+test('banco: aluno da família fora das regras (rota, consentimento, órfão) é detectado', async () => {
+  const { pool, consultas } = poolFalso((sql) => {
+    if (sql.includes('FROM rota_alunos ra JOIN alunos a') && sql.includes('IS NULL')) return 1;
+    if (sql.includes('consentimento_em IS NULL')) return 2;
+    if (sql.includes('a.ativo AND NOT EXISTS')) return 4;
+    return 0;
+  });
+  const resultados = await verificarBanco(pool);
+  const nivel = (item: string) => resultados.find((x) => x.item === item)?.nivel;
+  assert.equal(nivel('Aluno da família em rota'), 'FALHA');
+  assert.equal(nivel('Vínculo da família sem consentimento'), 'FALHA');
+  assert.equal(nivel('Aluno da família sem responsável'), 'AVISO');
+  assert.equal(resultados.filter((x) => x.nivel !== 'OK').length, 3);
+  // O vínculo de aluno da família não é confundido com vazamento entre organizações.
+  const isolamento = consultas.find((sql) => sql.includes("m.papel = 'RESPONSAVEL'"));
+  assert.match(isolamento ?? '', /a\.organizacao_id IS NOT NULL/);
 });
 
 test('banco: veículo particular fora do dono ou da organização vira FALHA', async () => {

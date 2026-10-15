@@ -1,7 +1,19 @@
 import type { Membro } from '../../shared/acesso/acesso.js';
 import { hojeNoFusoDoNegocio } from '../../shared/datas.js';
-import { NotFoundError } from '../../shared/errors/app-error.js';
+import { NotFoundError, RegraDeNegocioError } from '../../shared/errors/app-error.js';
 import type { AcompanhamentoRow, Escopo, ResponsavelRepository } from './responsavel.repository.js';
+import type { FilhoEdicaoInput, FilhoInput } from './responsavel.schemas.js';
+
+/** Filhos que um responsável pode cadastrar (contra contas que criam alunos falsos em massa). */
+export const MAX_FILHOS_POR_RESPONSAVEL = 10;
+
+/**
+ * Versão do termo de uso dos dados da criança que o app mostra no cadastro. Ao mudar o texto
+ * do termo, mude a versão: o banco guarda qual versão cada família aceitou.
+ */
+export const TERMO_CADASTRO_ALUNO_VERSAO = '2026-10';
+
+const ALUNO_NAO_ENCONTRADO = 'Aluno não encontrado';
 
 const escopoDe = (m: Membro): Escopo => ({
   organizacaoId: m.organizacaoId,
@@ -30,7 +42,7 @@ export function criarResponsavelService(repo: ResponsavelRepository, hoje = hoje
     async acompanharFilho(m: Membro, alunoId: string) {
       const [filho] = await repo.listarAcompanhamento(escopoDe(m), hoje(), alunoId);
       // 404 (e não 403) para não revelar se o aluno existe em outra família.
-      if (!filho) throw new NotFoundError('Aluno não encontrado');
+      if (!filho) throw new NotFoundError(ALUNO_NAO_ENCONTRADO);
 
       // O banco só traz posição durante a viagem em andamento.
       const posicao =
@@ -43,6 +55,37 @@ export function criarResponsavelService(repo: ResponsavelRepository, hoje = hoje
             }
           : null;
       return { ...resumo(filho), posicao };
+    },
+
+    // ── Filho cadastrado pela própria família ────────────────────────────────
+    // O responsável vem sempre do token (membro), nunca do corpo ou da URL. O aluno nasce
+    // sem organização: nenhuma escola nem motorista o vê até um vínculo aceito.
+
+    async cadastrarFilho(m: Membro, input: FilhoInput) {
+      const resultado = await repo.cadastrarFilho({
+        responsavelId: m.usuarioId,
+        nome: input.nome,
+        termoVersao: TERMO_CADASTRO_ALUNO_VERSAO,
+        limite: MAX_FILHOS_POR_RESPONSAVEL,
+      });
+      if (resultado === 'limite') {
+        throw new RegraDeNegocioError(
+          `Limite de ${MAX_FILHOS_POR_RESPONSAVEL} alunos cadastrados por responsável`,
+        );
+      }
+      return resultado;
+    },
+
+    /** Aluno de outra família, ou cadastrado pela escola, responde 404. */
+    async editarFilho(m: Membro, alunoId: string, input: FilhoEdicaoInput) {
+      const filho = await repo.atualizarFilho(m.usuarioId, alunoId, { nome: input.nome });
+      if (!filho) throw new NotFoundError(ALUNO_NAO_ENCONTRADO);
+      return filho;
+    },
+
+    async excluirFilho(m: Membro, alunoId: string) {
+      const resultado = await repo.excluirFilho(m.usuarioId, alunoId);
+      if (!resultado) throw new NotFoundError(ALUNO_NAO_ENCONTRADO);
     },
   };
 }

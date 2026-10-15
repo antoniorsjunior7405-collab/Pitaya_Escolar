@@ -1,6 +1,8 @@
-import { sql } from 'drizzle-orm';
+import { and, count, eq, exists, isNull, sql } from 'drizzle-orm';
+import { registrarAuditoria } from '../../db/auditoria.js';
 import type { StatusViagem } from '../../db/consultas.js';
 import type { Db } from '../../db/index.js';
+import { schema } from '../../db/index.js';
 import type { StatusAluno } from '../../shared/status-aluno.js';
 
 export type Escopo = { organizacaoId: string; responsavelId: string };
@@ -59,9 +61,67 @@ export interface ResponsavelRepository {
     hoje: string,
     alunoId?: string,
   ): Promise<AcompanhamentoRow[]>;
+
+  // ── Filho cadastrado pela própria família ──────────────────────────────────
+  // "Da família" = aluno sem organização, ativo, com vínculo AUTORIZADO do responsável do
+  // token. Aluno da escola (cadastrado pelo admin) nunca é editado ou excluído por aqui.
+
+  /**
+   * Na mesma transação: confere o limite, cria o aluno (sem organização), o vínculo
+   * autorizado com o consentimento e o registro de auditoria. 'limite' se o responsável já
+   * tem `limite` filhos cadastrados por ele (a conferência trava a conta, sem corrida).
+   */
+  cadastrarFilho(input: {
+    responsavelId: string;
+    nome: string;
+    termoVersao: string;
+    limite: number;
+  }): Promise<FilhoRow | 'limite'>;
+  /** undefined se o aluno não é da família do responsável. */
+  atualizarFilho(
+    responsavelId: string,
+    alunoId: string,
+    dados: { nome: string },
+  ): Promise<FilhoRow | undefined>;
+  /**
+   * Sem histórico de viagem: apaga de verdade. Com histórico: anonimiza (o histórico fica,
+   * sem nome) e remove vínculos e paradas. Em ambos, apaga as notificações do aluno (o texto
+   * delas pode ter o nome). undefined se o aluno não é da família do responsável.
+   */
+  excluirFilho(
+    responsavelId: string,
+    alunoId: string,
+  ): Promise<'excluido' | 'anonimizado' | undefined>;
 }
 
+export type FilhoRow = { id: string; nome: string };
+
+/** Nome que fica no histórico de viagens quando a família exclui um aluno que já viajou. */
+export const NOME_ANONIMIZADO = 'Aluno removido';
+
 export function createResponsavelRepository(db: Db): ResponsavelRepository {
+  const { alunos, responsaveisAlunos, rotaAlunos, eventosViagem, notificacoes, usuarios } = schema;
+
+  // Aluno da família do responsável, conferido junto da escrita (evita IDOR).
+  const daFamilia = (responsavelId: string, alunoId: string) =>
+    and(
+      eq(alunos.id, alunoId),
+      isNull(alunos.organizacaoId),
+      eq(alunos.ativo, true),
+      exists(
+        db
+          .select({ um: sql`1` })
+          .from(responsaveisAlunos)
+          .where(
+            and(
+              eq(responsaveisAlunos.alunoId, alunos.id),
+              eq(responsaveisAlunos.responsavelId, responsavelId),
+              eq(responsaveisAlunos.autorizado, true),
+            ),
+          ),
+      ),
+    );
+
   return {
     // UMA consulta para a tela inteira (antes eram ~2,5 por filho, refeitas a cada 10–30 s).
     // Para cada filho, o LATERAL escolhe a rota "atual": a que tem viagem em andamento;
@@ -122,12 +182,118 @@ export function createResponsavelRepository(db: Db): ResponsavelRepository {
           ON p.viagem_id = t.viagem_id AND t.viagem_status = 'EM_ANDAMENTO'
         WHERE ra.responsavel_id = ${escopo.responsavelId}
           AND ra.autorizado
-          AND a.organizacao_id = ${escopo.organizacaoId}
+          -- Aluno da escola do token, ou aluno da família (sem organização).
+          AND (a.organizacao_id = ${escopo.organizacaoId} OR a.organizacao_id IS NULL)
           AND a.ativo
           ${alunoId ? sql`AND a.id = ${alunoId}` : sql``}
         ORDER BY a.nome
       `);
       return resultado.rows.map(converter);
+    },
+
+    cadastrarFilho({ responsavelId, nome, termoVersao, limite }) {
+      return db.transaction(async (tx) => {
+        // Trava a conta do responsável: dois cadastros simultâneos não furam o limite.
+        await tx
+          .select({ id: usuarios.id })
+          .from(usuarios)
+          .where(eq(usuarios.id, responsavelId))
+          .for('update');
+        const [cadastrados] = await tx
+          .select({ total: count() })
+          .from(alunos)
+          .where(
+            and(
+              eq(alunos.criadoPor, responsavelId),
+              isNull(alunos.organizacaoId),
+              eq(alunos.ativo, true),
+            ),
+          );
+        if ((cadastrados?.total ?? 0) >= limite) return 'limite' as const;
+
+        const [aluno] = await tx
+          .insert(alunos)
+          .values({ nome, criadoPor: responsavelId })
+          .returning({ id: alunos.id, nome: alunos.nome });
+        if (!aluno) throw new Error('falha ao cadastrar aluno');
+        // Quem cadastrou é o responsável autorizado; o consentimento é gravado junto.
+        await tx.insert(responsaveisAlunos).values({
+          alunoId: aluno.id,
+          responsavelId,
+          autorizado: true,
+          consentimentoEm: new Date(),
+          termoVersao,
+        });
+        await registrarAuditoria(tx, {
+          usuarioId: responsavelId,
+          organizacaoId: null,
+          acao: 'ALUNO_CRIADO',
+          entidade: 'aluno',
+          entidadeId: aluno.id,
+        });
+        return aluno;
+      });
+    },
+
+    atualizarFilho(responsavelId, alunoId, dados) {
+      return db.transaction(async (tx) => {
+        const [aluno] = await tx
+          .update(alunos)
+          .set({ nome: dados.nome })
+          .where(daFamilia(responsavelId, alunoId))
+          .returning({ id: alunos.id, nome: alunos.nome });
+        if (!aluno) return undefined;
+        await registrarAuditoria(tx, {
+          usuarioId: responsavelId,
+          organizacaoId: null,
+          acao: 'ALUNO_EDITADO',
+          entidade: 'aluno',
+          entidadeId: aluno.id,
+        });
+        return aluno;
+      });
+    },
+
+    excluirFilho(responsavelId, alunoId) {
+      return db.transaction(async (tx) => {
+        const [aluno] = await tx
+          .select({ id: alunos.id })
+          .from(alunos)
+          .where(daFamilia(responsavelId, alunoId))
+          .for('update');
+        if (!aluno) return undefined;
+
+        const [historico] = await tx
+          .select({ id: eventosViagem.id })
+          .from(eventosViagem)
+          .where(eq(eventosViagem.alunoId, aluno.id))
+          .limit(1);
+        await tx.delete(notificacoes).where(eq(notificacoes.alunoId, aluno.id));
+
+        let resultado: 'excluido' | 'anonimizado';
+        if (historico) {
+          // O histórico de viagens do motorista continua íntegro, mas sem o nome da criança.
+          await tx
+            .update(alunos)
+            .set({ nome: NOME_ANONIMIZADO, ativo: false, criadoPor: null })
+            .where(eq(alunos.id, aluno.id));
+          await tx.delete(responsaveisAlunos).where(eq(responsaveisAlunos.alunoId, aluno.id));
+          await tx.delete(rotaAlunos).where(eq(rotaAlunos.alunoId, aluno.id));
+          resultado = 'anonimizado';
+        } else {
+          // Vínculos e paradas em rota caem junto (ON DELETE CASCADE).
+          await tx.delete(alunos).where(eq(alunos.id, aluno.id));
+          resultado = 'excluido';
+        }
+        await registrarAuditoria(tx, {
+          usuarioId: responsavelId,
+          organizacaoId: null,
+          acao: resultado === 'excluido' ? 'ALUNO_EXCLUIDO' : 'ALUNO_ANONIMIZADO',
+          entidade: 'aluno',
+          entidadeId: aluno.id,
+        });
+        return resultado;
+      });
     },
   };
 }

@@ -102,7 +102,7 @@ try {
       if (!aluno) throw new Error('falha ao criar aluno');
       await tx
         .insert(responsaveisAlunos)
-        .values({ alunoId: aluno.id, responsavelId, parentesco: 'Responsável' });
+        .values({ alunoId: aluno.id, responsavelId, parentesco: 'Responsável', autorizado: true });
       await tx.insert(rotaAlunos).values({
         rotaId: rota.id,
         alunoId: aluno.id,
