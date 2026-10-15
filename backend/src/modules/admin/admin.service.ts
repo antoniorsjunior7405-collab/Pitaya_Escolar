@@ -25,7 +25,7 @@ export function criarAdminService(repo: AdminRepository) {
     async criarVeiculo(m: Membro, input: VeiculoInput) {
       const veiculo = await repo.criarVeiculo({
         organizacaoId: m.organizacaoId,
-        placa: input.placa.replace('-', ''),
+        placa: input.placa,
         modelo: input.modelo,
         capacidade: input.capacidade ?? null,
       });

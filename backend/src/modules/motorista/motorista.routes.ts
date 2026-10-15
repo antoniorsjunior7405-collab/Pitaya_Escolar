@@ -7,11 +7,16 @@ import {
   eventoBody,
   historicoItem,
   historicoQuery,
+  perfil,
+  perfilBody,
   rotaParams,
   viagemParams,
   posicaoBody,
   rotaDetalhe,
   rotaResumo,
+  veiculo,
+  veiculoBody,
+  veiculoParams,
   viagem,
 } from './motorista.schemas.js';
 import type { MotoristaService } from './motorista.service.js';
@@ -86,6 +91,33 @@ export function criarMotoristaRoutes(service: MotoristaService) {
       '/viagens',
       { schema: { querystring: historicoQuery, response: { 200: z.array(historicoItem) } } },
       async (req) => service.historico(membroDe(req), req.query.limit, req.query.antesDe),
+    );
+
+    // ── Perfil e veículos do próprio motorista ──────────────────────────────
+
+    r.get('/perfil', { schema: { response: { 200: perfil } } }, async (req) =>
+      service.perfil(membroDe(req)),
+    );
+
+    r.put('/perfil', { schema: { body: perfilBody, response: { 200: perfil } } }, async (req) =>
+      service.atualizarPerfil(membroDe(req), req.body),
+    );
+
+    r.get('/veiculos', { schema: { response: { 200: z.array(veiculo) } } }, async (req) =>
+      service.listarVeiculos(membroDe(req)),
+    );
+
+    r.post(
+      '/veiculos',
+      { schema: { body: veiculoBody, response: { 201: veiculo } } },
+      async (req, reply) =>
+        reply.status(201).send(await service.cadastrarVeiculo(membroDe(req), req.body)),
+    );
+
+    r.put(
+      '/veiculos/:veiculoId',
+      { schema: { params: veiculoParams, body: veiculoBody, response: { 200: veiculo } } },
+      async (req) => service.atualizarVeiculo(membroDe(req), req.params.veiculoId, req.body),
     );
   };
 }

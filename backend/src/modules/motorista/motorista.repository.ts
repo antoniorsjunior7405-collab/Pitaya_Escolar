@@ -32,6 +32,20 @@ export type HistoricoRow = {
   alunosAtendidos: number;
 };
 
+export type PerfilRow = {
+  nome: string;
+  email: string;
+  telefone: string | null;
+  apresentacao: string | null;
+  regiaoAtendimento: string | null;
+};
+
+export type DadosPerfil = Omit<PerfilRow, 'email'>;
+
+export type VeiculoRow = { id: string; placa: string; modelo: string; capacidade: number | null };
+
+export type DadosVeiculo = Omit<VeiculoRow, 'id'>;
+
 // Toda consulta é filtrada por organização E motorista: um motorista nunca enxerga
 // rotas/viagens de outro, mesmo conhecendo o id (evita IDOR).
 export interface MotoristaRepository {
@@ -62,10 +76,35 @@ export interface MotoristaRepository {
     posicao: { latitude: number; longitude: number; velocidade: number | null },
   ): Promise<void>;
   historico(escopo: Escopo, limite: number, antesDe?: Date): Promise<HistoricoRow[]>;
+
+  /** Perfil do próprio usuário. undefined se a conta não existe ou está inativa. */
+  buscarPerfil(usuarioId: string): Promise<PerfilRow | undefined>;
+  /** Grava nome/telefone (usuarios) e o perfil (perfis_motorista) na mesma transação. */
+  salvarPerfil(usuarioId: string, dados: DadosPerfil): Promise<void>;
+
+  /** Só os veículos ativos do próprio motorista, naquela organização. */
+  listarVeiculos(escopo: Escopo): Promise<VeiculoRow[]>;
+  /** undefined se a placa já existe. */
+  criarVeiculo(escopo: Escopo, dados: DadosVeiculo): Promise<VeiculoRow | undefined>;
+  atualizarVeiculo(
+    escopo: Escopo,
+    veiculoId: string,
+    dados: DadosVeiculo,
+  ): Promise<VeiculoRow | 'nao-encontrado' | 'placa-duplicada'>;
 }
 
 export function createMotoristaRepository(db: Db): MotoristaRepository {
-  const { rotas, veiculos, rotaAlunos, alunos, viagens, eventosViagem, posicoesViagem } = schema;
+  const {
+    rotas,
+    veiculos,
+    rotaAlunos,
+    alunos,
+    viagens,
+    eventosViagem,
+    posicoesViagem,
+    usuarios,
+    perfisMotorista,
+  } = schema;
 
   const daRota = (escopo: Escopo) =>
     and(
@@ -73,6 +112,21 @@ export function createMotoristaRepository(db: Db): MotoristaRepository {
       eq(rotas.motoristaId, escopo.motoristaId),
       eq(rotas.ativa, true),
     );
+
+  // Veículo do PRÓPRIO motorista: organização e dono conferidos juntos (evita IDOR).
+  const doMotorista = (escopo: Escopo) =>
+    and(
+      eq(veiculos.organizacaoId, escopo.organizacaoId),
+      eq(veiculos.motoristaId, escopo.motoristaId),
+      eq(veiculos.ativo, true),
+    );
+
+  const colunasVeiculo = {
+    id: veiculos.id,
+    placa: veiculos.placa,
+    modelo: veiculos.modelo,
+    capacidade: veiculos.capacidade,
+  };
 
   return {
     async listarRotas(escopo) {
@@ -238,6 +292,80 @@ export function createMotoristaRepository(db: Db): MotoristaRepository {
         .groupBy(viagens.id, rotas.id)
         .orderBy(desc(viagens.finalizadaEm))
         .limit(limite);
+    },
+
+    async buscarPerfil(usuarioId) {
+      const [row] = await db
+        .select({
+          nome: usuarios.nome,
+          email: usuarios.email,
+          telefone: usuarios.telefone,
+          apresentacao: perfisMotorista.apresentacao,
+          regiaoAtendimento: perfisMotorista.regiaoAtendimento,
+        })
+        .from(usuarios)
+        // LEFT JOIN: o motorista recém-cadastrado ainda não tem linha em perfis_motorista.
+        .leftJoin(perfisMotorista, eq(perfisMotorista.usuarioId, usuarios.id))
+        .where(and(eq(usuarios.id, usuarioId), eq(usuarios.ativo, true)))
+        .limit(1);
+      return row;
+    },
+
+    async salvarPerfil(usuarioId, dados) {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(usuarios)
+          .set({ nome: dados.nome, telefone: dados.telefone })
+          .where(eq(usuarios.id, usuarioId));
+        const perfil = {
+          apresentacao: dados.apresentacao,
+          regiaoAtendimento: dados.regiaoAtendimento,
+          atualizadoEm: new Date(),
+        };
+        await tx
+          .insert(perfisMotorista)
+          .values({ usuarioId, ...perfil })
+          .onConflictDoUpdate({ target: perfisMotorista.usuarioId, set: perfil });
+      });
+    },
+
+    listarVeiculos(escopo) {
+      return db
+        .select(colunasVeiculo)
+        .from(veiculos)
+        .where(doMotorista(escopo))
+        .orderBy(asc(veiculos.placa));
+    },
+
+    async criarVeiculo(escopo, dados) {
+      try {
+        const [row] = await db
+          .insert(veiculos)
+          .values({
+            organizacaoId: escopo.organizacaoId,
+            motoristaId: escopo.motoristaId,
+            ...dados,
+          })
+          .returning(colunasVeiculo);
+        return row;
+      } catch (erro) {
+        if (ehViolacaoUnica(erro)) return undefined;
+        throw erro;
+      }
+    },
+
+    async atualizarVeiculo(escopo, veiculoId, dados) {
+      try {
+        const [row] = await db
+          .update(veiculos)
+          .set(dados)
+          .where(and(doMotorista(escopo), eq(veiculos.id, veiculoId)))
+          .returning(colunasVeiculo);
+        return row ?? 'nao-encontrado';
+      } catch (erro) {
+        if (ehViolacaoUnica(erro)) return 'placa-duplicada';
+        throw erro;
+      }
     },
   };
 }

@@ -164,3 +164,175 @@ test('posição: aceita durante a viagem, valida coordenadas e recusa após fina
   assert.equal((await enviar({ latitude: -23.55, longitude: -46.63 })).statusCode, 422);
   await app.close();
 });
+
+// ── Perfil e veículos do próprio motorista ───────────────────────────────────
+
+// Cenário: dois motoristas na mesma organização e um motorista de outra organização.
+async function cenarioCadastro() {
+  const org = randomUUID();
+  const outraOrg = randomUUID();
+  const motorista = randomUUID();
+  const outroMotorista = randomUUID();
+  const motoristaDeFora = randomUUID();
+  const responsavel = randomUUID();
+  const fake = criarFakeMotoristaRepository();
+  for (const id of [motorista, outroMotorista, motoristaDeFora]) fake.adicionarUsuario(id);
+
+  const membros: Membro[] = [
+    { usuarioId: motorista, organizacaoId: org, papel: 'MOTORISTA' },
+    { usuarioId: outroMotorista, organizacaoId: org, papel: 'MOTORISTA' },
+    { usuarioId: motoristaDeFora, organizacaoId: outraOrg, papel: 'MOTORISTA' },
+    { usuarioId: responsavel, organizacaoId: org, papel: 'RESPONSAVEL' },
+  ];
+  const app = await buildApp(depsDeTeste({ motoristaRepository: fake.repo }));
+  const auth = (sub: string) => autorizacao(app, sub, membros);
+  return { app, fake, auth, motorista, outroMotorista, motoristaDeFora, responsavel };
+}
+
+const perfilValido = {
+  nome: 'João Transporte',
+  telefone: '(19) 99999-0000',
+  apresentacao: 'Van com ar-condicionado, 10 anos de experiência.',
+  regiaoAtendimento: 'Centro e Jardim Planalto',
+};
+
+test('perfil e veículos: sem token → 401; papel RESPONSAVEL → 403', async () => {
+  const { app, auth, responsavel } = await cenarioCadastro();
+  for (const url of ['/v1/motorista/perfil', '/v1/motorista/veiculos']) {
+    assert.equal((await app.inject({ method: 'GET', url })).statusCode, 401);
+    const res = await app.inject({ method: 'GET', url, headers: auth(responsavel) });
+    assert.equal(res.statusCode, 403);
+  }
+  await app.close();
+});
+
+test('perfil: motorista novo vê o perfil vazio, atualiza e passa a ver os dados salvos', async () => {
+  const { app, auth, motorista } = await cenarioCadastro();
+  const h = auth(motorista);
+
+  const vazio = await app.inject({ method: 'GET', url: '/v1/motorista/perfil', headers: h });
+  assert.equal(vazio.statusCode, 200);
+  assert.equal(vazio.json().apresentacao, null);
+  assert.deepEqual(vazio.json().veiculos, []);
+
+  const salvo = await app.inject({
+    method: 'PUT',
+    url: '/v1/motorista/perfil',
+    headers: h,
+    payload: perfilValido,
+  });
+  assert.equal(salvo.statusCode, 200);
+  assert.equal(salvo.json().nome, 'João Transporte');
+  assert.equal(salvo.json().regiaoAtendimento, 'Centro e Jardim Planalto');
+
+  const lido = await app.inject({ method: 'GET', url: '/v1/motorista/perfil', headers: h });
+  assert.equal(lido.json().telefone, '(19) 99999-0000');
+  await app.close();
+});
+
+test('perfil: campo desconhecido, campo faltando ou nome curto → 400', async () => {
+  const { app, auth, motorista } = await cenarioCadastro();
+  const enviar = (payload: object) =>
+    app.inject({ method: 'PUT', url: '/v1/motorista/perfil', headers: auth(motorista), payload });
+
+  // Tentar trocar e-mail ou papel pelo perfil não passa da validação.
+  assert.equal((await enviar({ ...perfilValido, email: 'x@y.com' })).statusCode, 400);
+  assert.equal((await enviar({ ...perfilValido, papel: 'ADMIN' })).statusCode, 400);
+  const { telefone: _telefone, ...semTelefone } = perfilValido;
+  assert.equal((await enviar(semTelefone)).statusCode, 400);
+  assert.equal((await enviar({ ...perfilValido, nome: 'J' })).statusCode, 400);
+  await app.close();
+});
+
+test('veículo: cadastra com placa normalizada e aparece na lista e no perfil', async () => {
+  const { app, auth, motorista } = await cenarioCadastro();
+  const h = auth(motorista);
+
+  const criado = await app.inject({
+    method: 'POST',
+    url: '/v1/motorista/veiculos',
+    headers: h,
+    payload: { placa: ' abc-1234 ', modelo: 'Sprinter', capacidade: 15 },
+  });
+  assert.equal(criado.statusCode, 201);
+  assert.equal(criado.json().placa, 'ABC1234');
+  assert.equal(criado.json().capacidade, 15);
+
+  const lista = await app.inject({ method: 'GET', url: '/v1/motorista/veiculos', headers: h });
+  assert.equal(lista.json().length, 1);
+
+  const perfil = await app.inject({ method: 'GET', url: '/v1/motorista/perfil', headers: h });
+  assert.equal(perfil.json().veiculos[0].placa, 'ABC1234');
+  await app.close();
+});
+
+test('veículo: placa repetida (em qualquer grafia) → 409; placa inválida ou campo extra → 400', async () => {
+  const { app, auth, motorista, outroMotorista } = await cenarioCadastro();
+  const cadastrar = (sub: string, payload: object) =>
+    app.inject({ method: 'POST', url: '/v1/motorista/veiculos', headers: auth(sub), payload });
+
+  assert.equal((await cadastrar(motorista, { placa: 'ABC1D23', modelo: 'Van' })).statusCode, 201);
+  assert.equal(
+    (await cadastrar(outroMotorista, { placa: 'abc1d23', modelo: 'Van' })).statusCode,
+    409,
+  );
+  assert.equal((await cadastrar(motorista, { placa: 'E2E1A71', modelo: 'Van' })).statusCode, 400);
+  assert.equal(
+    (await cadastrar(motorista, { placa: 'XYZ9876', modelo: 'Van', motoristaId: outroMotorista }))
+      .statusCode,
+    400,
+  );
+  await app.close();
+});
+
+test('veículo: só o dono altera; outro motorista ou outra organização → 404 e não enxerga', async () => {
+  const { app, fake, auth, motorista, outroMotorista, motoristaDeFora } = await cenarioCadastro();
+  const criado = await app.inject({
+    method: 'POST',
+    url: '/v1/motorista/veiculos',
+    headers: auth(motorista),
+    payload: { placa: 'ABC1234', modelo: 'Van' },
+  });
+  const url = `/v1/motorista/veiculos/${criado.json().id}`;
+  const payload = { placa: 'ABC1234', modelo: 'Van Nova', capacidade: 12 };
+
+  for (const intruso of [outroMotorista, motoristaDeFora]) {
+    const res = await app.inject({ method: 'PUT', url, headers: auth(intruso), payload });
+    assert.equal(res.statusCode, 404);
+    const lista = await app.inject({
+      method: 'GET',
+      url: '/v1/motorista/veiculos',
+      headers: auth(intruso),
+    });
+    assert.deepEqual(lista.json(), []);
+  }
+  assert.equal(fake.veiculos[0]?.modelo, 'Van');
+
+  const dono = await app.inject({ method: 'PUT', url, headers: auth(motorista), payload });
+  assert.equal(dono.statusCode, 200);
+  assert.equal(dono.json().modelo, 'Van Nova');
+  await app.close();
+});
+
+test('veículo: trocar para a placa de outro veículo → 409', async () => {
+  const { app, auth, motorista } = await cenarioCadastro();
+  const h = auth(motorista);
+  const cadastrar = (placa: string) =>
+    app.inject({
+      method: 'POST',
+      url: '/v1/motorista/veiculos',
+      headers: h,
+      payload: { placa, modelo: 'Van' },
+    });
+  await cadastrar('AAA1111');
+  const segundo = await cadastrar('BBB2222');
+
+  const res = await app.inject({
+    method: 'PUT',
+    url: `/v1/motorista/veiculos/${segundo.json().id}`,
+    headers: h,
+    payload: { placa: 'aaa-1111', modelo: 'Van' },
+  });
+  assert.equal(res.statusCode, 409);
+  await app.close();
+});

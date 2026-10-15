@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { placaSchema } from '../../shared/placa.js';
 
 const periodo = z.enum(['MANHA', 'TARDE', 'NOITE']);
 const papel = z.enum(['ADMIN', 'MOTORISTA', 'RESPONSAVEL']);
@@ -16,12 +17,7 @@ export const membro = z.object({
 });
 
 export const veiculoBody = z.object({
-  // Placa no padrão antigo (ABC-1234) ou Mercosul (ABC1D23); normalizada para maiúsculas.
-  placa: z
-    .string()
-    .trim()
-    .toUpperCase()
-    .regex(/^[A-Z]{3}-?\d[A-Z0-9]\d{2}$/, 'Placa inválida'),
+  placa: placaSchema,
   modelo: texto(80),
   capacidade: z.number().int().min(1).max(100).optional(),
 });

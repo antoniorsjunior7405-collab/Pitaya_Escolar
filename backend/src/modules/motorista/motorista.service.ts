@@ -1,15 +1,33 @@
 import type { ViagemRow } from '../../db/consultas.js';
 import type { Membro } from '../../shared/acesso/acesso.js';
 import { hojeNoFusoDoNegocio } from '../../shared/datas.js';
-import { NotFoundError, RegraDeNegocioError } from '../../shared/errors/app-error.js';
+import {
+  ConflictError,
+  NotFoundError,
+  RegraDeNegocioError,
+} from '../../shared/errors/app-error.js';
 import { statusDoAluno } from '../../shared/status-aluno.js';
-import type { Escopo, MotoristaRepository } from './motorista.repository.js';
-import type { PosicaoInput, TipoEventoInput } from './motorista.schemas.js';
+import type { DadosVeiculo, Escopo, MotoristaRepository } from './motorista.repository.js';
+import type {
+  PerfilInput,
+  PosicaoInput,
+  TipoEventoInput,
+  VeiculoInput,
+} from './motorista.schemas.js';
 import { garantirEmAndamento, garantirOrdemDoEvento, podeFinalizar } from './regras-viagem.js';
 
 const escopoDe = (m: Membro): Escopo => ({
   organizacaoId: m.organizacaoId,
   motoristaId: m.usuarioId,
+});
+
+const PLACA_EM_USO = 'Já existe um veículo com esta placa';
+
+// A placa já chega normalizada pelo schema; aqui só fixamos "não informada" como null.
+const dadosDoVeiculo = (input: VeiculoInput): DadosVeiculo => ({
+  placa: input.placa,
+  modelo: input.modelo,
+  capacidade: input.capacidade ?? null,
 });
 
 export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFusoDoNegocio) {
@@ -21,6 +39,15 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
     const viagem = await repo.buscarViagem(escopoDe(m), viagemId);
     if (!viagem) throw new NotFoundError('Viagem não encontrada');
     return viagem;
+  }
+
+  async function perfilDoMotorista(m: Membro) {
+    const [perfil, veiculos] = await Promise.all([
+      repo.buscarPerfil(m.usuarioId),
+      repo.listarVeiculos(escopoDe(m)),
+    ]);
+    if (!perfil) throw new NotFoundError('Perfil não encontrado');
+    return { ...perfil, veiculos };
   }
 
   return {
@@ -113,6 +140,33 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
 
     historico: (m: Membro, limite: number, antesDe?: Date) =>
       repo.historico(escopoDe(m), limite, antesDe),
+
+    // ── Perfil e veículos do próprio motorista ──────────────────────────────
+    // O motorista só lê e altera os PRÓPRIOS dados: o id vem sempre do token (membro),
+    // nunca do corpo ou da URL.
+
+    perfil: perfilDoMotorista,
+
+    async atualizarPerfil(m: Membro, input: PerfilInput) {
+      await repo.salvarPerfil(m.usuarioId, input);
+      return perfilDoMotorista(m);
+    },
+
+    listarVeiculos: (m: Membro) => repo.listarVeiculos(escopoDe(m)),
+
+    async cadastrarVeiculo(m: Membro, input: VeiculoInput) {
+      const veiculo = await repo.criarVeiculo(escopoDe(m), dadosDoVeiculo(input));
+      if (!veiculo) throw new ConflictError(PLACA_EM_USO);
+      return veiculo;
+    },
+
+    /** Veículo de outro motorista (ou de outra organização) responde 404, não 403. */
+    async atualizarVeiculo(m: Membro, veiculoId: string, input: VeiculoInput) {
+      const resultado = await repo.atualizarVeiculo(escopoDe(m), veiculoId, dadosDoVeiculo(input));
+      if (resultado === 'nao-encontrado') throw new NotFoundError('Veículo não encontrado');
+      if (resultado === 'placa-duplicada') throw new ConflictError(PLACA_EM_USO);
+      return resultado;
+    },
   };
 }
 
