@@ -97,6 +97,23 @@ test('banco: veículo particular fora do dono ou da organização vira FALHA', a
   assert.equal(resultados.filter((x) => x.nivel !== 'OK').length, 2);
 });
 
+test('banco: vínculo sem pedido aceito é FALHA; pedido a motorista sem aprovação é AVISO', async () => {
+  const { pool, consultas } = poolFalso((sql) => {
+    // Só a consulta cuja tabela principal é a de vínculos (a de rota cita a tabela numa subconsulta).
+    if (sql.trim().startsWith('SELECT count(*) FROM vinculos_motorista_aluno')) return 1;
+    if (sql.includes('p.aprovado_em IS NULL')) return 2;
+    return 0;
+  });
+  const resultados = await verificarBanco(pool);
+  const nivel = (item: string) => resultados.find((x) => x.item === item)?.nivel;
+  assert.equal(nivel('Vínculo motorista–aluno sem pedido aceito'), 'FALHA');
+  assert.equal(nivel('Pedido pendente para motorista sem aprovação'), 'AVISO');
+  assert.equal(resultados.filter((x) => x.nivel !== 'OK').length, 2);
+  // Aluno da família em rota só é problema SEM vínculo ativo com o motorista da rota.
+  const emRota = consultas.find((sql) => sql.includes('FROM rota_alunos ra JOIN alunos a'));
+  assert.match(emRota ?? '', /vm\.motorista_id = r\.motorista_id AND vm\.fim_em IS NULL/);
+});
+
 test('banco: viagem esquecida em andamento é só AVISO (não derruba o CI)', async () => {
   const { pool } = poolFalso((sql) => (sql.includes("interval '12 hours'") ? 1 : 0));
   const r = (await verificarBanco(pool)).find((x) => x.item === 'Viagem esquecida em andamento');

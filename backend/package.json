@@ -17,6 +17,7 @@
     "db:studio": "node --env-file=.env ./node_modules/drizzle-kit/bin.cjs studio",
     "db:migrate:deploy": "drizzle-kit migrate",
     "seed:admin": "node --env-file=.env --import tsx src/scripts/criar-admin.ts",
+    "aprovar:motorista": "node --env-file=.env --import tsx src/scripts/aprovar-motorista.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -25,7 +26,8 @@
     "seed:demo": "node --env-file=.env --import tsx src/scripts/criar-demo.ts",
     "audit:seguranca": "node --env-file-if-exists=.env --import tsx src/scripts/auditoria-seguranca.ts",
     "audit:recuperacao": "node --import tsx src/scripts/auditoria-recuperacao.ts",
-    "audit:aluno-responsavel": "node --import tsx src/scripts/auditoria-aluno-responsavel.ts"
+    "audit:aluno-responsavel": "node --import tsx src/scripts/auditoria-aluno-responsavel.ts",
+    "audit:busca-motorista": "node --import tsx src/scripts/auditoria-busca-motorista.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.1",

@@ -30,6 +30,21 @@ npm run audit:seguranca -- --sem-banco --url http://localhost:3333     # só con
 
 `npm run audit:aluno-responsavel` mostra a arquitetura recomendada do cadastro do aluno pela família e confere os requisitos PA0–PA16 no código (dados mínimos, mass assignment, aluno e vínculo na mesma transação, IDOR na edição, exclusão de verdade, aluno invisível à escola e ao motorista). Checagem estática, como a anterior; use `-- --curto` para uma linha por item.
 
+### Busca de motoristas e tela de espera
+
+`npm run audit:busca-motorista` mostra a arquitetura do vínculo família–motorista (busca → pedido → tela de espera → resposta do motorista), com um rascunho da tela de espera, e confere os requisitos BM0–BM22 no backend e no app (só motorista aprovado e só dados públicos na busca, filtro obrigatório, paginação e rate limit, pedido com estado explícito, único enquanto pendente e com prazo, tela que consulta o status e para nos estados finais, erro de rede que não vira "recusado", aceite atômico, auditoria). Checagem estática; use `-- --curto` para uma linha por item.
+
+## Vínculo família–motorista
+
+Módulo `src/modules/vinculos/`. O responsável busca o motorista (`GET /v1/responsavel/motoristas`), pede o transporte de um filho (`POST /v1/responsavel/solicitacoes`) e acompanha o pedido (`GET /v1/responsavel/solicitacoes/:id`, que o app consulta na tela de espera). O motorista vê os pedidos recebidos (`GET /v1/motorista/solicitacoes`) e aceita ou recusa; o aceite cria o vínculo e libera o telefone dele para a família. Pedido pendente vence em 7 dias.
+
+Só motorista **aprovado** aparece na busca. Aprove depois de conferir os documentos do condutor escolar:
+
+```bash
+npm run aprovar:motorista -- --email motorista@exemplo.com
+npm run aprovar:motorista -- --email motorista@exemplo.com --revogar
+```
+
 ## Estrutura
 
 `src/app.ts` monta a aplicação, `src/server.ts` sobe o servidor, `src/config/` valida o ambiente, `src/modules/<dominio>/` contém cada componente de negócio e `src/shared/` o código comum.

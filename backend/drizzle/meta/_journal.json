@@ -50,6 +50,13 @@
       "when": 1792089748148,
       "tag": "0006_aluno_da_familia_e_auditoria",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792097229333,
+      "tag": "0007_busca_e_solicitacoes",
+      "breakpoints": true
     }
   ]
 }

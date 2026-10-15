@@ -134,6 +134,9 @@ export const perfisMotorista = pgTable('perfis_motorista', {
     .references(() => usuarios.id, { onDelete: 'cascade' }),
   apresentacao: text(),
   regiaoAtendimento: text('regiao_atendimento'),
+  // Aprovação pela plataforma (script aprovar:motorista). Só motorista aprovado aparece na
+  // busca das famílias: num transporte de crianças, a conta não nasce visível.
+  aprovadoEm: timestamp('aprovado_em', { withTimezone: true }),
   criadoEm: criadoEm(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -380,6 +383,79 @@ export const notificacoes = pgTable(
     index('notificacoes_usuario_idx').on(t.usuarioId, t.criadoEm),
     index('notificacoes_viagem_idx').on(t.viagemId),
     index('notificacoes_aluno_idx').on(t.alunoId),
+  ],
+);
+
+// ── Vínculo família–motorista (gestão direta) ────────────────────────────────
+
+// EXPIRADA é gravada de forma preguiçosa: um pedido PENDENTE vencido já é lido como EXPIRADA,
+// e só passa a EXPIRADA no banco quando um novo pedido do mesmo aluno ao mesmo motorista chega.
+export const estadoSolicitacaoEnum = pgEnum('estado_solicitacao', [
+  'PENDENTE',
+  'ACEITA',
+  'RECUSADA',
+  'CANCELADA',
+  'EXPIRADA',
+]);
+
+// Pedido do responsável para um motorista transportar um aluno. Enquanto PENDENTE não é
+// vínculo: o motorista vê só o primeiro nome do aluno e nada além (documento, seção 8).
+export const solicitacoesVinculo = pgTable(
+  'solicitacoes_vinculo',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    alunoId: uuid('aluno_id')
+      .notNull()
+      .references(() => alunos.id, { onDelete: 'cascade' }),
+    responsavelId: uuid('responsavel_id')
+      .notNull()
+      .references(() => usuarios.id, { onDelete: 'cascade' }),
+    motoristaId: uuid('motorista_id')
+      .notNull()
+      .references(() => usuarios.id, { onDelete: 'cascade' }),
+    estado: estadoSolicitacaoEnum().notNull().default('PENDENTE'),
+    expiraEm: timestamp('expira_em', { withTimezone: true }).notNull(),
+    respondidaEm: timestamp('respondida_em', { withTimezone: true }),
+    criadoEm: criadoEm(),
+  },
+  (t) => [
+    // Um pedido pendente por aluno e motorista: tocar duas vezes em "Pedir" não duplica.
+    uniqueIndex('solicitacoes_vinculo_pendente_unique')
+      .on(t.alunoId, t.motoristaId)
+      .where(sql`${t.estado} = 'PENDENTE'`),
+    index('solicitacoes_vinculo_responsavel_idx').on(t.responsavelId, t.criadoEm),
+    index('solicitacoes_vinculo_motorista_idx').on(t.motoristaId, t.estado),
+    // Pendente nunca tem data de resposta; os outros estados sempre têm.
+    check(
+      'solicitacoes_vinculo_resposta_check',
+      sql`(${t.estado} = 'PENDENTE') = (${t.respondidaEm} IS NULL)`,
+    ),
+  ],
+);
+
+// Vínculo ativo, criado só pelo aceite do motorista. fim_em preenchido = vínculo encerrado
+// (a linha fica para o histórico).
+export const vinculosMotoristaAluno = pgTable(
+  'vinculos_motorista_aluno',
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    alunoId: uuid('aluno_id')
+      .notNull()
+      .references(() => alunos.id, { onDelete: 'cascade' }),
+    motoristaId: uuid('motorista_id')
+      .notNull()
+      .references(() => usuarios.id, { onDelete: 'cascade' }),
+    solicitacaoId: uuid('solicitacao_id').references(() => solicitacoesVinculo.id, {
+      onDelete: 'set null',
+    }),
+    inicioEm: timestamp('inicio_em', { withTimezone: true }).notNull().defaultNow(),
+    fimEm: timestamp('fim_em', { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex('vinculos_motorista_aluno_ativo_unique')
+      .on(t.alunoId, t.motoristaId)
+      .where(sql`${t.fimEm} IS NULL`),
+    index('vinculos_motorista_aluno_motorista_idx').on(t.motoristaId),
   ],
 );
 
