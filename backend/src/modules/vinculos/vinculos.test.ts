@@ -242,15 +242,17 @@ test('aceite: motorista vê só primeiros nomes; aceitar libera o telefone e cri
 });
 
 test('aceite: pedido de outro motorista responde 404; responsável na área do motorista 403', async () => {
-  const { app, motorista, aluno, pedir, comoMotorista, comoResponsavel } = await cenario();
+  const { app, fake, motorista, aluno, pedir, comoMotorista, comoResponsavel } = await cenario();
   const { id } = (await pedir({ motoristaId: motorista.id, alunoId: aluno.id })).json<{
     id: string;
   }>();
+  // Outro motorista aprovado: o pedido existe, mas não é dele.
+  const outro = fake.adicionarMotorista({ nome: 'Pedro Alves' });
 
   const outroMotorista = await app.inject({
     method: 'POST',
     url: `${BASE_M}/solicitacoes/${id}/aceitar`,
-    headers: comoMotorista(randomUUID()),
+    headers: comoMotorista(outro.id),
   });
   const responsavel = await app.inject({
     method: 'POST',
@@ -336,6 +338,58 @@ test('prazo: pedido vencido aparece como EXPIRADA, sai da fila do motorista e n�
   assert.equal(status.json<{ estado: string }>().estado, 'EXPIRADA');
   assert.deepEqual(fila.json(), []);
   assert.equal(aceite.statusCode, 409);
+});
+
+test('aprovação revogada: pedido some da fila e aceitar ou recusar responde 403 sem criar vínculo', async () => {
+  const { app, fake, motorista, aluno, pedir, comoMotorista } = await cenario();
+  const { id } = (await pedir({ motoristaId: motorista.id, alunoId: aluno.id })).json<{
+    id: string;
+  }>();
+  fake.revogarAprovacao(motorista.id);
+
+  const fila = await app.inject({
+    method: 'GET',
+    url: `${BASE_M}/solicitacoes`,
+    headers: comoMotorista(),
+  });
+  const aceite = await app.inject({
+    method: 'POST',
+    url: `${BASE_M}/solicitacoes/${id}/aceitar`,
+    headers: comoMotorista(),
+  });
+  const recusa = await app.inject({
+    method: 'POST',
+    url: `${BASE_M}/solicitacoes/${id}/recusar`,
+    headers: comoMotorista(),
+  });
+
+  assert.deepEqual(fila.json(), []);
+  assert.equal(aceite.statusCode, 403);
+  assert.equal(recusa.statusCode, 403);
+  assert.deepEqual(fake.vinculos, []);
+});
+
+test('aluno excluído pela família: pedido some da fila e o aceite responde 409 sem criar vínculo', async () => {
+  const { app, fake, motorista, aluno, pedir, comoMotorista } = await cenario();
+  const { id } = (await pedir({ motoristaId: motorista.id, alunoId: aluno.id })).json<{
+    id: string;
+  }>();
+  fake.desativarAluno(aluno.id);
+
+  const fila = await app.inject({
+    method: 'GET',
+    url: `${BASE_M}/solicitacoes`,
+    headers: comoMotorista(),
+  });
+  const aceite = await app.inject({
+    method: 'POST',
+    url: `${BASE_M}/solicitacoes/${id}/aceitar`,
+    headers: comoMotorista(),
+  });
+
+  assert.deepEqual(fila.json(), []);
+  assert.equal(aceite.statusCode, 409);
+  assert.deepEqual(fake.vinculos, []);
 });
 
 test('padraoContem escapa os curingas do LIKE; primeiroNome corta no primeiro espaço', () => {

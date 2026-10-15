@@ -114,6 +114,15 @@ test('banco: vínculo sem pedido aceito é FALHA; pedido a motorista sem aprova�
   assert.match(emRota ?? '', /vm\.motorista_id = r\.motorista_id AND vm\.fim_em IS NULL/);
 });
 
+test('banco: aluno excluído com pedido pendente ou vínculo ativo é FALHA', async () => {
+  const { pool } = poolFalso((sql) => (sql.includes('WHERE NOT a.ativo AND') ? 1 : 0));
+  const r = (await verificarBanco(pool)).find(
+    (x) => x.item === 'Aluno excluído com pedido ou vínculo aberto',
+  );
+  assert.equal(r?.nivel, 'FALHA');
+  assert.match(r?.detalhe ?? '', /^1 /);
+});
+
 test('banco: viagem esquecida em andamento é só AVISO (não derruba o CI)', async () => {
   const { pool } = poolFalso((sql) => (sql.includes("interval '12 hours'") ? 1 : 0));
   const r = (await verificarBanco(pool)).find((x) => x.item === 'Viagem esquecida em andamento');

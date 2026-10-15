@@ -67,6 +67,8 @@ export type ResultadoPedido =
 
 /** Resultado de uma mudança de estado atômica (cancelar, aceitar, recusar). */
 export type ResultadoMudanca = 'ok' | 'nao-encontrada' | 'ja-respondida';
+/** Resposta do motorista: além da mudança, a conta dele precisa continuar habilitada. */
+export type ResultadoResposta = ResultadoMudanca | 'motorista-nao-habilitado';
 
 // Camada de dados do módulo. O service só conhece esta interface (facilita testes).
 export interface VinculosRepository {
@@ -97,18 +99,21 @@ export interface VinculosRepository {
     solicitacaoId: string,
   ): Promise<SolicitacaoRow | undefined>;
   cancelarSolicitacao(responsavelId: string, solicitacaoId: string): Promise<ResultadoMudanca>;
-  /** Só pendentes e não vencidos, endereçados ao motorista. */
+  /** Só pendentes e não vencidos de aluno ativo, endereçados a motorista ainda habilitado. */
   listarPedidosRecebidos(motoristaId: string, limit: number): Promise<PedidoRecebidoRow[]>;
   buscarPedidoRecebido(
     motoristaId: string,
     solicitacaoId: string,
   ): Promise<PedidoRecebidoRow | undefined>;
-  /** Aceitar cria o vínculo ativo na mesma transação. */
+  /**
+   * Aceitar cria o vínculo ativo na mesma transação. Motorista que perdeu a aprovação (ou a
+   * conta, ou a organização) não responde; pedido de aluno já excluído não pode ser aceito.
+   */
   responderSolicitacao(
     motoristaId: string,
     solicitacaoId: string,
     decisao: 'ACEITA' | 'RECUSADA',
-  ): Promise<ResultadoMudanca>;
+  ): Promise<ResultadoResposta>;
 }
 
 /**
@@ -206,6 +211,20 @@ export function createVinculosRepository(db: Db): VinculosRepository {
       .innerJoin(motorista, eq(motorista.id, s.motoristaId))
       .leftJoin(perfil, eq(perfil.usuarioId, motorista.id));
 
+  // O mesmo critério da busca, para um motorista dado: quem perde a aprovação não recebe
+  // pedidos novos, não vê os que tinha e não consegue aceitá-los.
+  const motoristaHabilitado = (executor: Executor, motoristaId: string) =>
+    executor
+      .select({ id: motorista.id })
+      .from(motorista)
+      .innerJoin(perfil, eq(perfil.usuarioId, motorista.id))
+      .where(
+        and(
+          eq(motorista.id, motoristaId),
+          visivel(motorista.id, motorista.ativo, perfil.aprovadoEm),
+        ),
+      );
+
   const selecionarPedidosRecebidos = (executor: Executor) =>
     executor
       .select({
@@ -276,17 +295,7 @@ export function createVinculosRepository(db: Db): VinculosRepository {
           .limit(1);
         if (!aluno) return { tipo: 'aluno-nao-encontrado' };
 
-        const [destino] = await tx
-          .select({ id: motorista.id })
-          .from(motorista)
-          .innerJoin(perfil, eq(perfil.usuarioId, motorista.id))
-          .where(
-            and(
-              eq(motorista.id, motoristaId),
-              visivel(motorista.id, motorista.ativo, perfil.aprovadoEm),
-            ),
-          )
-          .limit(1);
+        const [destino] = await motoristaHabilitado(tx, motoristaId).limit(1);
         if (!destino) return { tipo: 'motorista-nao-encontrado' };
 
         const [ativo] = await tx
@@ -418,7 +427,14 @@ export function createVinculosRepository(db: Db): VinculosRepository {
 
     listarPedidosRecebidos(motoristaId, limit) {
       return selecionarPedidosRecebidos(db)
-        .where(and(eq(s.motoristaId, motoristaId), pendenteValido))
+        .where(
+          and(
+            eq(s.motoristaId, motoristaId),
+            pendenteValido,
+            eq(alunos.ativo, true),
+            exists(motoristaHabilitado(db, motoristaId)),
+          ),
+        )
         .orderBy(asc(s.criadoEm))
         .limit(limit);
     },
@@ -431,11 +447,28 @@ export function createVinculosRepository(db: Db): VinculosRepository {
     },
 
     responderSolicitacao(motoristaId, solicitacaoId, decisao) {
-      return db.transaction(async (tx): Promise<ResultadoMudanca> => {
+      return db.transaction(async (tx): Promise<ResultadoResposta> => {
+        const [habilitado] = await motoristaHabilitado(tx, motoristaId).limit(1);
+        if (!habilitado) return 'motorista-nao-habilitado';
+
+        // Aluno ativo conferido no mesmo UPDATE: pedido de aluno excluído não vira vínculo.
+        const alunoAtivo = exists(
+          tx
+            .select({ um: sql`1` })
+            .from(alunos)
+            .where(and(eq(alunos.id, s.alunoId), eq(alunos.ativo, true))),
+        );
         const [row] = await tx
           .update(s)
           .set({ estado: decisao, respondidaEm: new Date() })
-          .where(and(eq(s.id, solicitacaoId), eq(s.motoristaId, motoristaId), pendenteValido))
+          .where(
+            and(
+              eq(s.id, solicitacaoId),
+              eq(s.motoristaId, motoristaId),
+              pendenteValido,
+              alunoAtivo,
+            ),
+          )
           .returning({ id: s.id, alunoId: s.alunoId });
         if (!row) {
           const [existe] = await tx

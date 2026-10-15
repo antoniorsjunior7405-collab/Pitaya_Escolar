@@ -1,6 +1,7 @@
 import type { Membro } from '../../shared/acesso/acesso.js';
 import {
   ConflictError,
+  ForbiddenError,
   NotFoundError,
   RegraDeNegocioError,
 } from '../../shared/errors/app-error.js';
@@ -131,9 +132,12 @@ export function criarVinculosService(repo: VinculosRepository, agora = () => new
       return (await repo.listarPedidosRecebidos(m.usuarioId, limit)).map(paraMotorista);
     },
 
-    /** Aceitar ou recusar. Pedido de outro motorista responde 404. */
+    /** Aceitar ou recusar. Pedido de outro motorista responde 404; conta não aprovada, 403. */
     async responder(m: Membro, solicitacaoId: string, decisao: 'ACEITA' | 'RECUSADA') {
       const resultado = await repo.responderSolicitacao(m.usuarioId, solicitacaoId, decisao);
+      if (resultado === 'motorista-nao-habilitado') {
+        throw new ForbiddenError('Sua conta de motorista não está aprovada para responder pedidos');
+      }
       if (resultado === 'nao-encontrada') throw new NotFoundError(PEDIDO_NAO_ENCONTRADO);
       if (resultado === 'ja-respondida') {
         throw new ConflictError('Este pedido já foi respondido, cancelado ou venceu');

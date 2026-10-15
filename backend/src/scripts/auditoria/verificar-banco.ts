@@ -101,10 +101,22 @@ const VERIFICACOES: Verificacao[] = [
             WHERE s.id = vm.solicitacao_id AND s.estado = 'ACEITA')`,
   },
   {
+    item: 'Aluno excluído com pedido ou vínculo aberto',
+    nivel: 'FALHA',
+    problema:
+      'alunos inativos (excluídos pela família) com pedido pendente ou vínculo ativo com motorista (o motorista continuaria vendo a criança)',
+    sql: `SELECT count(*) FROM alunos a
+          WHERE NOT a.ativo AND (
+            EXISTS (SELECT 1 FROM solicitacoes_vinculo s
+                    WHERE s.aluno_id = a.id AND s.estado = 'PENDENTE' AND s.expira_em > now())
+            OR EXISTS (SELECT 1 FROM vinculos_motorista_aluno vm
+                       WHERE vm.aluno_id = a.id AND vm.fim_em IS NULL))`,
+  },
+  {
     item: 'Pedido pendente para motorista sem aprovação',
     nivel: 'AVISO',
     problema:
-      'pedidos pendentes para motoristas sem aprovação (revogada depois do pedido): o motorista ainda pode aceitar',
+      'pedidos pendentes para motoristas sem aprovação (revogada depois do pedido): o motorista não pode mais aceitar, e a família espera até o pedido vencer',
     sql: `SELECT count(*) FROM solicitacoes_vinculo s
           LEFT JOIN perfis_motorista p ON p.usuario_id = s.motorista_id
           WHERE s.estado = 'PENDENTE' AND s.expira_em > now() AND p.aprovado_em IS NULL`,

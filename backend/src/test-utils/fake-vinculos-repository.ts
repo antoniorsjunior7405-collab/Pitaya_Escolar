@@ -17,7 +17,13 @@ type MotoristaFake = {
   aprovado: boolean;
   ativo: boolean;
 };
-type AlunoFake = { id: string; nome: string; responsavelId: string; responsavelNome: string };
+type AlunoFake = {
+  id: string;
+  nome: string;
+  responsavelId: string;
+  responsavelNome: string;
+  ativo: boolean;
+};
 type SolicitacaoFake = {
   id: string;
   alunoId: string;
@@ -32,7 +38,8 @@ type SolicitacaoFake = {
 // Repositório de vínculos em memória. Reproduz as garantias do banco que importam para as regras:
 // só motorista aprovado e ativo é visível; posse do aluno; um pendente por aluno e motorista;
 // pendente vencido lido como EXPIRADA; mudanças de estado só a partir de PENDENTE válido; o
-// telefone só depois do aceite; vínculo criado no aceite; registro de auditoria.
+// telefone só depois do aceite; vínculo criado no aceite; motorista que perdeu a aprovação não
+// vê nem responde pedidos; pedido de aluno inativo não é aceito; registro de auditoria.
 export function criarFakeVinculosRepository() {
   const motoristas: MotoristaFake[] = [];
   const alunos: AlunoFake[] = [];
@@ -45,6 +52,7 @@ export function criarFakeVinculosRepository() {
     s.estado === 'PENDENTE' && s.expiraEm.getTime() <= agora() ? 'EXPIRADA' : s.estado;
   const pendenteValido = (s: SolicitacaoFake) => estadoEfetivo(s) === 'PENDENTE';
   const visivel = (id: string) => motoristas.find((m) => m.id === id && m.aprovado && m.ativo);
+  const alunoAtivo = (id: string) => alunos.some((a) => a.id === id && a.ativo);
 
   const linha = (s: SolicitacaoFake): SolicitacaoRow => {
     const aluno = alunos.find((a) => a.id === s.alunoId);
@@ -106,7 +114,7 @@ export function criarFakeVinculosRepository() {
       maxPendentes,
       recusadaDesde,
     }) {
-      if (!alunos.some((a) => a.id === alunoId && a.responsavelId === responsavelId)) {
+      if (!alunos.some((a) => a.id === alunoId && a.responsavelId === responsavelId && a.ativo)) {
         return { tipo: 'aluno-nao-encontrado' };
       }
       if (!visivel(motoristaId)) return { tipo: 'motorista-nao-encontrado' };
@@ -177,7 +185,13 @@ export function criarFakeVinculosRepository() {
 
     async listarPedidosRecebidos(motoristaId, limit) {
       return solicitacoes
-        .filter((s) => s.motoristaId === motoristaId && pendenteValido(s))
+        .filter(
+          (s) =>
+            s.motoristaId === motoristaId &&
+            pendenteValido(s) &&
+            alunoAtivo(s.alunoId) &&
+            visivel(motoristaId),
+        )
         .slice(0, limit)
         .map(recebido);
     },
@@ -188,9 +202,10 @@ export function criarFakeVinculosRepository() {
     },
 
     async responderSolicitacao(motoristaId, solicitacaoId, decisao) {
+      if (!visivel(motoristaId)) return 'motorista-nao-habilitado';
       const s = solicitacoes.find((x) => x.id === solicitacaoId && x.motoristaId === motoristaId);
       if (!s) return 'nao-encontrada';
-      if (!pendenteValido(s)) return 'ja-respondida';
+      if (!pendenteValido(s) || !alunoAtivo(s.alunoId)) return 'ja-respondida';
       s.estado = decisao;
       s.respondidaEm = new Date();
       if (decisao === 'ACEITA') vinculos.push({ alunoId: s.alunoId, motoristaId });
@@ -225,9 +240,19 @@ export function criarFakeVinculosRepository() {
     },
     /** Aluno com vínculo autorizado do responsável. */
     adicionarAluno(responsavelId: string, nome = 'Ana Lima', responsavelNome = 'Maria Lima') {
-      const a: AlunoFake = { id: randomUUID(), nome, responsavelId, responsavelNome };
+      const a: AlunoFake = { id: randomUUID(), nome, responsavelId, responsavelNome, ativo: true };
       alunos.push(a);
       return a;
+    },
+    /** Revoga a aprovação do motorista (script aprovar:motorista --revogar). */
+    revogarAprovacao(motoristaId: string) {
+      const m = motoristas.find((x) => x.id === motoristaId);
+      if (m) m.aprovado = false;
+    },
+    /** Aluno excluído pela família e anonimizado (fica inativo). */
+    desativarAluno(alunoId: string) {
+      const a = alunos.find((x) => x.id === alunoId);
+      if (a) a.ativo = false;
     },
     /** Faz o prazo do pedido vencer. */
     vencer(solicitacaoId: string) {
