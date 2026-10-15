@@ -11,9 +11,10 @@ const VERIFICACOES: Verificacao[] = [
     item: 'Responsável vinculado a aluno de outra organização',
     nivel: 'FALHA',
     problema: 'vínculos em que o responsável não é RESPONSAVEL na organização do aluno',
+    // Aluno da família (sem organização) não entra aqui: tem as verificações próprias abaixo.
     sql: `SELECT count(*) FROM responsaveis_alunos ra
           JOIN alunos a ON a.id = ra.aluno_id
-          WHERE NOT EXISTS (
+          WHERE a.organizacao_id IS NOT NULL AND NOT EXISTS (
             SELECT 1 FROM membros m
             WHERE m.usuario_id = ra.responsavel_id
               AND m.organizacao_id = a.organizacao_id AND m.papel = 'RESPONSAVEL')`,
@@ -59,6 +60,31 @@ const VERIFICACOES: Verificacao[] = [
     sql: `SELECT count(*) FROM rota_alunos ra
           JOIN rotas r ON r.id = ra.rota_id JOIN alunos a ON a.id = ra.aluno_id
           WHERE a.organizacao_id <> r.organizacao_id`,
+  },
+  // ── Aluno cadastrado pela família (sem organização) ───────────────────────
+  {
+    item: 'Aluno da família em rota',
+    nivel: 'FALHA',
+    problema:
+      'alunos cadastrados pela família em alguma rota (só podem entrar com vínculo aceito com o motorista)',
+    sql: `SELECT count(*) FROM rota_alunos ra JOIN alunos a ON a.id = ra.aluno_id
+          WHERE a.organizacao_id IS NULL`,
+  },
+  {
+    item: 'Vínculo da família sem consentimento',
+    nivel: 'FALHA',
+    problema:
+      'vínculos autorizados com aluno da família sem consentimento registrado (LGPD art. 14)',
+    sql: `SELECT count(*) FROM responsaveis_alunos ra JOIN alunos a ON a.id = ra.aluno_id
+          WHERE a.organizacao_id IS NULL AND ra.autorizado AND ra.consentimento_em IS NULL`,
+  },
+  {
+    item: 'Aluno da família sem responsável',
+    nivel: 'AVISO',
+    problema: 'alunos ativos da família sem nenhum responsável autorizado (ninguém vê nem apaga)',
+    sql: `SELECT count(*) FROM alunos a
+          WHERE a.organizacao_id IS NULL AND a.ativo AND NOT EXISTS (
+            SELECT 1 FROM responsaveis_alunos ra WHERE ra.aluno_id = a.id AND ra.autorizado)`,
   },
   {
     item: 'Viagem com organização diferente da rota',

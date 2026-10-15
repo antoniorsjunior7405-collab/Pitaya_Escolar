@@ -2,7 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { exigirPapel, membroDe } from '../../shared/acesso/acesso.js';
+import { alunoParams, filho, filhoBody, filhoEdicaoBody } from './responsavel.schemas.js';
 import type { ResponsavelService } from './responsavel.service.js';
+
+// Cadastro de aluno: limite próprio, além do global, contra criação de alunos falsos em massa.
+const limiteCadastro = { rateLimit: { max: 20, timeWindow: '1 hour' } };
 
 const filhoResumo = z.object({
   id: z.uuid(),
@@ -40,8 +44,32 @@ export function criarResponsavelRoutes(service: ResponsavelService) {
 
     r.get(
       '/filhos/:alunoId',
-      { schema: { params: z.object({ alunoId: z.uuid() }), response: { 200: filhoDetalhe } } },
+      { schema: { params: alunoParams, response: { 200: filhoDetalhe } } },
       async (req) => service.acompanharFilho(membroDe(req), req.params.alunoId),
+    );
+
+    // ── Filho cadastrado pela própria família ────────────────────────────────
+
+    r.post(
+      '/filhos',
+      { config: limiteCadastro, schema: { body: filhoBody, response: { 201: filho } } },
+      async (req, reply) =>
+        reply.status(201).send(await service.cadastrarFilho(membroDe(req), req.body)),
+    );
+
+    r.put(
+      '/filhos/:alunoId',
+      { schema: { params: alunoParams, body: filhoEdicaoBody, response: { 200: filho } } },
+      async (req) => service.editarFilho(membroDe(req), req.params.alunoId, req.body),
+    );
+
+    r.delete(
+      '/filhos/:alunoId',
+      { schema: { params: alunoParams, response: { 204: z.null() } } },
+      async (req, reply) => {
+        await service.excluirFilho(membroDe(req), req.params.alunoId);
+        return reply.status(204).send(null);
+      },
     );
   };
 }

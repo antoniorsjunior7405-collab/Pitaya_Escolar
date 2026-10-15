@@ -43,6 +43,13 @@
       "when": 1792080482549,
       "tag": "0005_perfil_e_veiculos_do_motorista",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792089748148,
+      "tag": "0006_aluno_da_familia_e_auditoria",
+      "breakpoints": true
     }
   ]
 }

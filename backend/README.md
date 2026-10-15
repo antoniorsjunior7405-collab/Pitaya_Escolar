@@ -26,6 +26,10 @@ npm run audit:seguranca -- --sem-banco --url http://localhost:3333     # só con
 
 `npm run audit:recuperacao` mostra a arquitetura recomendada do fluxo (OWASP Forgot Password) e confere os requisitos RA0–RA13 no código. Enquanto o fluxo não existe, eles aparecem como pendentes; quando surgir uma rota de recuperação, passam a ser conferidos. Checagem estática: não precisa de `.env` nem de banco. Use `-- --curto` para uma linha por item. Os caminhos `arquivo:linha` são clicáveis no terminal do VS Code.
 
+### Responsável cadastra o próprio aluno
+
+`npm run audit:aluno-responsavel` mostra a arquitetura recomendada do cadastro do aluno pela família e confere os requisitos PA0–PA16 no código (dados mínimos, mass assignment, aluno e vínculo na mesma transação, IDOR na edição, exclusão de verdade, aluno invisível à escola e ao motorista). Checagem estática, como a anterior; use `-- --curto` para uma linha por item.
+
 ## Estrutura
 
 `src/app.ts` monta a aplicação, `src/server.ts` sobe o servidor, `src/config/` valida o ambiente, `src/modules/<dominio>/` contém cada componente de negócio e `src/shared/` o código comum.

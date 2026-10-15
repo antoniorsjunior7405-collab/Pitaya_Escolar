@@ -276,7 +276,12 @@ export function createAdminRepository(db: Db): AdminRepository {
         .orderBy(asc(usuarios.nome)),
 
     async vincularResponsavel(input) {
-      await db.insert(responsaveisAlunos).values(input).onConflictDoNothing();
+      // O vínculo nasce não autorizado no banco; aqui quem autoriza é o admin da escola
+      // (gestão pela escola), que conferiu o e-mail do responsável na organização.
+      await db
+        .insert(responsaveisAlunos)
+        .values({ ...input, autorizado: true })
+        .onConflictDoNothing();
     },
 
     listarRotas: (organizacaoId) => rotasDa(organizacaoId).orderBy(asc(rotas.nome)),
