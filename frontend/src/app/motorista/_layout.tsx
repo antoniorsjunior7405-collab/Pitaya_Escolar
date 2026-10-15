@@ -10,6 +10,7 @@ export default function MotoristaLayout() {
     <Stack screenOptions={opcoes}>
       <Stack.Screen name="index" options={{ title: 'Minhas rotas' }} />
       <Stack.Screen name="historico" options={{ title: 'Histórico' }} />
+      <Stack.Screen name="pedidos" options={{ title: 'Pedidos de transporte' }} />
     </Stack>
   );
 }
