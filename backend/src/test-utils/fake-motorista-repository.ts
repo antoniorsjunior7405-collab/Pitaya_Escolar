@@ -124,7 +124,9 @@ export function criarFakeMotoristaRepository() {
     },
     async salvarPerfil(usuarioId, dados) {
       const atual = perfis.get(usuarioId);
-      if (atual) perfis.set(usuarioId, { ...atual, ...dados });
+      if (!atual) return false;
+      perfis.set(usuarioId, { ...atual, ...dados });
+      return true;
     },
     async listarVeiculos(e) {
       return veiculos

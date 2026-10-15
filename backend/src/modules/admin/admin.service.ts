@@ -75,7 +75,7 @@ export function criarAdminService(repo: AdminRepository) {
         'Motorista não encontrado nesta organização',
       );
       await exigir(
-        repo.veiculoDaOrganizacao(m.organizacaoId, input.veiculoId),
+        repo.veiculoDisponivelParaRota(m.organizacaoId, input.veiculoId, input.motoristaId),
         'Veículo não encontrado',
       );
       return repo.criarRota({

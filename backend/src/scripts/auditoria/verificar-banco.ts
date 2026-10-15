@@ -36,6 +36,23 @@ const VERIFICACOES: Verificacao[] = [
           WHERE v.organizacao_id <> r.organizacao_id`,
   },
   {
+    item: 'Veículo particular de quem não é motorista da organização',
+    nivel: 'FALHA',
+    problema: 'veículos cujo dono (motorista_id) não é MOTORISTA na organização do veículo',
+    sql: `SELECT count(*) FROM veiculos v
+          WHERE v.motorista_id IS NOT NULL AND NOT EXISTS (
+            SELECT 1 FROM membros m
+            WHERE m.usuario_id = v.motorista_id
+              AND m.organizacao_id = v.organizacao_id AND m.papel = 'MOTORISTA')`,
+  },
+  {
+    item: 'Rota com veículo particular de outro motorista',
+    nivel: 'FALHA',
+    problema: 'rotas usando o veículo particular de um motorista que não é o da rota',
+    sql: `SELECT count(*) FROM rotas r JOIN veiculos v ON v.id = r.veiculo_id
+          WHERE v.motorista_id IS NOT NULL AND v.motorista_id <> r.motorista_id`,
+  },
+  {
     item: 'Rota com aluno de outra organização',
     nivel: 'FALHA',
     problema: 'alunos em rota de outra organização',

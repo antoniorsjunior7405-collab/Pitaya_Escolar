@@ -1,4 +1,4 @@
-import { and, asc, eq, type SQL } from 'drizzle-orm';
+import { and, asc, eq, isNull, or, type SQL } from 'drizzle-orm';
 import { ehViolacaoUnica } from '../../db/erros.js';
 import type { Db } from '../../db/index.js';
 import { schema } from '../../db/index.js';
@@ -21,12 +21,18 @@ export interface AdminRepository {
     papel: Papel,
   ): Promise<string | undefined>;
 
+  /** Só a frota da organização: veículos particulares de motoristas ficam de fora. */
   listarVeiculos(organizacaoId: string): Promise<VeiculoRow[]>;
   /** undefined se a placa já existe. */
   criarVeiculo(
     input: Omit<VeiculoRow, 'id'> & { organizacaoId: string },
   ): Promise<VeiculoRow | undefined>;
-  veiculoDaOrganizacao(organizacaoId: string, veiculoId: string): Promise<boolean>;
+  /** Veículo da frota da organização ou veículo particular do próprio motorista da rota. */
+  veiculoDisponivelParaRota(
+    organizacaoId: string,
+    veiculoId: string,
+    motoristaId: string,
+  ): Promise<boolean>;
 
   listarAlunos(organizacaoId: string): Promise<{ id: string; nome: string }[]>;
   criarAluno(organizacaoId: string, nome: string): Promise<{ id: string; nome: string }>;
@@ -180,7 +186,13 @@ export function createAdminRepository(db: Db): AdminRepository {
           capacidade: veiculos.capacidade,
         })
         .from(veiculos)
-        .where(and(eq(veiculos.organizacaoId, organizacaoId), eq(veiculos.ativo, true)))
+        .where(
+          and(
+            eq(veiculos.organizacaoId, organizacaoId),
+            isNull(veiculos.motoristaId),
+            eq(veiculos.ativo, true),
+          ),
+        )
         .orderBy(asc(veiculos.placa)),
 
     async criarVeiculo(input) {
@@ -198,12 +210,20 @@ export function createAdminRepository(db: Db): AdminRepository {
       }
     },
 
-    veiculoDaOrganizacao: (organizacaoId, veiculoId) =>
+    // Veículo particular só serve à rota do próprio dono: o admin não pode pôr o carro de
+    // um motorista na rota de outro (gestão direta família–motorista).
+    veiculoDisponivelParaRota: (organizacaoId, veiculoId, motoristaId) =>
       existe(
         db
           .select({ id: veiculos.id })
           .from(veiculos)
-          .where(and(eq(veiculos.id, veiculoId), eq(veiculos.organizacaoId, organizacaoId)))
+          .where(
+            and(
+              eq(veiculos.id, veiculoId),
+              eq(veiculos.organizacaoId, organizacaoId),
+              or(isNull(veiculos.motoristaId), eq(veiculos.motoristaId, motoristaId)),
+            ),
+          )
           .limit(1),
       ),
 

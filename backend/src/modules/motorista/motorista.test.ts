@@ -167,13 +167,15 @@ test('posição: aceita durante a viagem, valida coordenadas e recusa após fina
 
 // ── Perfil e veículos do próprio motorista ───────────────────────────────────
 
-// Cenário: dois motoristas na mesma organização e um motorista de outra organização.
+// Cenário: dois motoristas na mesma organização, um motorista de outra organização e um
+// motorista com token ainda válido mas conta desativada (o repositório não o encontra).
 async function cenarioCadastro() {
   const org = randomUUID();
   const outraOrg = randomUUID();
   const motorista = randomUUID();
   const outroMotorista = randomUUID();
   const motoristaDeFora = randomUUID();
+  const desativado = randomUUID();
   const responsavel = randomUUID();
   const fake = criarFakeMotoristaRepository();
   for (const id of [motorista, outroMotorista, motoristaDeFora]) fake.adicionarUsuario(id);
@@ -182,11 +184,12 @@ async function cenarioCadastro() {
     { usuarioId: motorista, organizacaoId: org, papel: 'MOTORISTA' },
     { usuarioId: outroMotorista, organizacaoId: org, papel: 'MOTORISTA' },
     { usuarioId: motoristaDeFora, organizacaoId: outraOrg, papel: 'MOTORISTA' },
+    { usuarioId: desativado, organizacaoId: org, papel: 'MOTORISTA' },
     { usuarioId: responsavel, organizacaoId: org, papel: 'RESPONSAVEL' },
   ];
   const app = await buildApp(depsDeTeste({ motoristaRepository: fake.repo }));
   const auth = (sub: string) => autorizacao(app, sub, membros);
-  return { app, fake, auth, motorista, outroMotorista, motoristaDeFora, responsavel };
+  return { app, fake, auth, motorista, outroMotorista, motoristaDeFora, desativado, responsavel };
 }
 
 const perfilValido = {
@@ -241,6 +244,16 @@ test('perfil: campo desconhecido, campo faltando ou nome curto → 400', async (
   const { telefone: _telefone, ...semTelefone } = perfilValido;
   assert.equal((await enviar(semTelefone)).statusCode, 400);
   assert.equal((await enviar({ ...perfilValido, nome: 'J' })).statusCode, 400);
+  await app.close();
+});
+
+test('perfil: conta desativada com token ainda válido → 404 ao ler e ao gravar', async () => {
+  const { app, auth, desativado } = await cenarioCadastro();
+  const h = auth(desativado);
+  const url = '/v1/motorista/perfil';
+  assert.equal((await app.inject({ method: 'GET', url, headers: h })).statusCode, 404);
+  const put = await app.inject({ method: 'PUT', url, headers: h, payload: perfilValido });
+  assert.equal(put.statusCode, 404);
   await app.close();
 });
 

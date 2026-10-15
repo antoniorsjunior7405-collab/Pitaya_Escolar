@@ -79,8 +79,11 @@ export interface MotoristaRepository {
 
   /** Perfil do próprio usuário. undefined se a conta não existe ou está inativa. */
   buscarPerfil(usuarioId: string): Promise<PerfilRow | undefined>;
-  /** Grava nome/telefone (usuarios) e o perfil (perfis_motorista) na mesma transação. */
-  salvarPerfil(usuarioId: string, dados: DadosPerfil): Promise<void>;
+  /**
+   * Grava nome/telefone (usuarios) e o perfil (perfis_motorista) na mesma transação.
+   * false (e nada gravado) se a conta não existe ou está inativa.
+   */
+  salvarPerfil(usuarioId: string, dados: DadosPerfil): Promise<boolean>;
 
   /** Só os veículos ativos do próprio motorista, naquela organização. */
   listarVeiculos(escopo: Escopo): Promise<VeiculoRow[]>;
@@ -311,12 +314,16 @@ export function createMotoristaRepository(db: Db): MotoristaRepository {
       return row;
     },
 
-    async salvarPerfil(usuarioId, dados) {
-      await db.transaction(async (tx) => {
-        await tx
+    salvarPerfil(usuarioId, dados) {
+      return db.transaction(async (tx) => {
+        // O token de acesso continua válido por alguns minutos depois que a conta é
+        // desativada: a conferência de "ativo" fica aqui, junto da escrita.
+        const atualizados = await tx
           .update(usuarios)
           .set({ nome: dados.nome, telefone: dados.telefone })
-          .where(eq(usuarios.id, usuarioId));
+          .where(and(eq(usuarios.id, usuarioId), eq(usuarios.ativo, true)))
+          .returning({ id: usuarios.id });
+        if (atualizados.length === 0) return false;
         const perfil = {
           apresentacao: dados.apresentacao,
           regiaoAtendimento: dados.regiaoAtendimento,
@@ -326,6 +333,7 @@ export function createMotoristaRepository(db: Db): MotoristaRepository {
           .insert(perfisMotorista)
           .values({ usuarioId, ...perfil })
           .onConflictDoUpdate({ target: perfisMotorista.usuarioId, set: perfil });
+        return true;
       });
     },
 

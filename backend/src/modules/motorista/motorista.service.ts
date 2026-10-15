@@ -148,7 +148,9 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
     perfil: perfilDoMotorista,
 
     async atualizarPerfil(m: Membro, input: PerfilInput) {
-      await repo.salvarPerfil(m.usuarioId, input);
+      if (!(await repo.salvarPerfil(m.usuarioId, input))) {
+        throw new NotFoundError('Perfil não encontrado');
+      }
       return perfilDoMotorista(m);
     },
 
