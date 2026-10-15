@@ -125,6 +125,19 @@ export const membros = pgTable(
   ],
 );
 
+// Perfil do motorista: dados que o próprio motorista mantém e que não são de login.
+// Fica por USUÁRIO (como nome e telefone em `usuarios`), não por organização: é a mesma
+// pessoa em todas as organizações de que participa. Nome e telefone continuam em `usuarios`.
+export const perfisMotorista = pgTable('perfis_motorista', {
+  usuarioId: uuid('usuario_id')
+    .primaryKey()
+    .references(() => usuarios.id, { onDelete: 'cascade' }),
+  apresentacao: text(),
+  regiaoAtendimento: text('regiao_atendimento'),
+  criadoEm: criadoEm(),
+  atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ── Frota, alunos e rotas ────────────────────────────────────────────────────
 
 export const veiculos = pgTable(
@@ -134,6 +147,9 @@ export const veiculos = pgTable(
     organizacaoId: uuid('organizacao_id')
       .notNull()
       .references(() => organizacoes.id),
+    // Dono do veículo. NULL = frota da organização (cadastrado pelo admin, gestão pela
+    // escola). Preenchido = veículo do próprio motorista (gestão direta família–motorista).
+    motoristaId: uuid('motorista_id').references(() => usuarios.id),
     placa: text().notNull(),
     modelo: text().notNull(),
     capacidade: integer(),
@@ -143,6 +159,7 @@ export const veiculos = pgTable(
   (t) => [
     unique('veiculos_placa_unique').on(t.placa),
     index('veiculos_organizacao_idx').on(t.organizacaoId),
+    index('veiculos_motorista_idx').on(t.motoristaId),
     check('veiculos_capacidade_check', sql`${t.capacidade} IS NULL OR ${t.capacidade} > 0`),
   ],
 );

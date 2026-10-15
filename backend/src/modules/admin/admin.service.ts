@@ -25,7 +25,7 @@ export function criarAdminService(repo: AdminRepository) {
     async criarVeiculo(m: Membro, input: VeiculoInput) {
       const veiculo = await repo.criarVeiculo({
         organizacaoId: m.organizacaoId,
-        placa: input.placa.replace('-', ''),
+        placa: input.placa,
         modelo: input.modelo,
         capacidade: input.capacidade ?? null,
       });
@@ -75,7 +75,7 @@ export function criarAdminService(repo: AdminRepository) {
         'Motorista não encontrado nesta organização',
       );
       await exigir(
-        repo.veiculoDaOrganizacao(m.organizacaoId, input.veiculoId),
+        repo.veiculoDisponivelParaRota(m.organizacaoId, input.veiculoId, input.motoristaId),
         'Veículo não encontrado',
       );
       return repo.criarRota({

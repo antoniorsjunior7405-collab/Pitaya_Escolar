@@ -2,20 +2,38 @@ import { randomUUID } from 'node:crypto';
 import type { EventoRow, ViagemRow } from '../db/consultas.js';
 import type {
   AlunoDaRota,
+  Escopo,
   MotoristaRepository,
+  PerfilRow,
   RotaRow,
+  VeiculoRow,
 } from '../modules/motorista/motorista.repository.js';
 
 type RotaFake = RotaRow & { organizacaoId: string; motoristaId: string; alunos: AlunoDaRota[] };
 type ViagemFake = ViagemRow & { organizacaoId: string; motoristaId: string; criadaEm: number };
+type VeiculoFake = VeiculoRow & { organizacaoId: string; motoristaId: string | null };
 
 // Repositório do motorista em memória. Reproduz as garantias do banco que importam para as
-// regras: uma viagem EM_ANDAMENTO por rota e evento único por (viagem, aluno, tipo).
+// regras: uma viagem EM_ANDAMENTO por rota, evento único por (viagem, aluno, tipo) e placa
+// única em todo o sistema.
 export function criarFakeMotoristaRepository() {
   const rotas: RotaFake[] = [];
   const viagens: ViagemFake[] = [];
   const eventos: (EventoRow & { viagemId: string })[] = [];
   const posicoes = new Map<string, { latitude: number; longitude: number }>();
+  const perfis = new Map<string, PerfilRow>();
+  const veiculos: VeiculoFake[] = [];
+
+  const publico = ({ id, placa, modelo, capacidade }: VeiculoFake): VeiculoRow => ({
+    id,
+    placa,
+    modelo,
+    capacidade,
+  });
+  const doMotorista = (e: Escopo) => (v: VeiculoFake) =>
+    v.organizacaoId === e.organizacaoId && v.motoristaId === e.motoristaId;
+  const placaEmUso = (placa: string, excetoId?: string) =>
+    veiculos.some((v) => v.placa === placa && v.id !== excetoId);
 
   const repo: MotoristaRepository = {
     async listarRotas(e) {
@@ -101,7 +119,51 @@ export function criarFakeMotoristaRepository() {
     async historico() {
       return [];
     },
+    async buscarPerfil(usuarioId) {
+      return perfis.get(usuarioId);
+    },
+    async salvarPerfil(usuarioId, dados) {
+      const atual = perfis.get(usuarioId);
+      if (!atual) return false;
+      perfis.set(usuarioId, { ...atual, ...dados });
+      return true;
+    },
+    async listarVeiculos(e) {
+      return veiculos
+        .filter(doMotorista(e))
+        .map(publico)
+        .sort((a, b) => a.placa.localeCompare(b.placa));
+    },
+    async criarVeiculo(e, dados) {
+      if (placaEmUso(dados.placa)) return undefined;
+      const v: VeiculoFake = {
+        id: randomUUID(),
+        organizacaoId: e.organizacaoId,
+        motoristaId: e.motoristaId,
+        ...dados,
+      };
+      veiculos.push(v);
+      return publico(v);
+    },
+    async atualizarVeiculo(e, veiculoId, dados) {
+      const v = veiculos.find((x) => x.id === veiculoId && doMotorista(e)(x));
+      if (!v) return 'nao-encontrado';
+      if (placaEmUso(dados.placa, v.id)) return 'placa-duplicada';
+      Object.assign(v, dados);
+      return publico(v);
+    },
   };
+
+  /** Conta de motorista recém-criada: sem perfil preenchido ainda. */
+  function adicionarUsuario(usuarioId: string, nome = 'Motorista Teste') {
+    perfis.set(usuarioId, {
+      nome,
+      email: `${usuarioId}@teste.dev`,
+      telefone: null,
+      apresentacao: null,
+      regiaoAtendimento: null,
+    });
+  }
 
   function adicionarRota(input: { organizacaoId: string; motoristaId: string; alunos?: number }) {
     const rota: RotaFake = {
@@ -123,5 +185,5 @@ export function criarFakeMotoristaRepository() {
     return rota;
   }
 
-  return { repo, adicionarRota, posicoes, eventos };
+  return { repo, adicionarRota, adicionarUsuario, posicoes, eventos, veiculos };
 }

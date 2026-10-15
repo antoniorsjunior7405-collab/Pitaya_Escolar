@@ -1,9 +1,12 @@
 import { z } from 'zod';
+import { placaSchema } from '../../shared/placa.js';
 
 export const rotaParams = z.object({ rotaId: z.uuid() });
 export const viagemParams = z.object({ viagemId: z.uuid() });
+export const veiculoParams = z.object({ veiculoId: z.uuid() });
 
-const veiculo = z.object({ placa: z.string(), modelo: z.string() });
+const texto = (max: number) => z.string().trim().min(1).max(max);
+const veiculoResumo = z.object({ placa: z.string(), modelo: z.string() });
 const statusViagem = z.enum(['PLANEJADA', 'EM_ANDAMENTO', 'FINALIZADA']);
 const statusAluno = z.enum(['AGUARDANDO', 'EMBARCADO', 'ENTREGUE']);
 const tipoEvento = z.enum(['EMBARCADO', 'ENTREGUE']);
@@ -12,7 +15,7 @@ export const rotaResumo = z.object({
   id: z.uuid(),
   nome: z.string(),
   periodo: z.enum(['MANHA', 'TARDE', 'NOITE']).nullable(),
-  veiculo,
+  veiculo: veiculoResumo,
   totalAlunos: z.number().int(),
 });
 
@@ -63,5 +66,42 @@ export const historicoItem = z.object({
   alunosAtendidos: z.number().int(),
 });
 
+// ── Cadastro do próprio motorista (gestão direta família–motorista) ─────────
+// strictObject: campo desconhecido é recusado (400), conforme BOAS_PRATICAS §7.
+
+// PUT substitui o veículo inteiro: capacidade omitida vira "não informada" (null).
+export const veiculoBody = z.strictObject({
+  placa: placaSchema,
+  modelo: texto(80),
+  capacidade: z.number().int().min(1).max(100).nullable().optional(),
+});
+
+export const veiculo = z.object({
+  id: z.uuid(),
+  placa: z.string(),
+  modelo: z.string(),
+  capacidade: z.number().int().nullable(),
+});
+
+// PUT substitui o perfil inteiro: todos os campos são obrigatórios; null limpa o valor.
+// E-mail não muda aqui: ele é o login (fica com o módulo auth).
+export const perfilBody = z.strictObject({
+  nome: z.string().trim().min(2).max(120),
+  telefone: z.string().trim().min(8).max(20).nullable(),
+  apresentacao: texto(500).nullable(),
+  regiaoAtendimento: texto(120).nullable(),
+});
+
+export const perfil = z.object({
+  nome: z.string(),
+  email: z.string(),
+  telefone: z.string().nullable(),
+  apresentacao: z.string().nullable(),
+  regiaoAtendimento: z.string().nullable(),
+  veiculos: z.array(veiculo),
+});
+
 export type PosicaoInput = z.infer<typeof posicaoBody>;
 export type TipoEventoInput = z.infer<typeof tipoEvento>;
+export type VeiculoInput = z.infer<typeof veiculoBody>;
+export type PerfilInput = z.infer<typeof perfilBody>;

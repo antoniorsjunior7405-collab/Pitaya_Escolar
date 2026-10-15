@@ -61,6 +61,24 @@ test('banco: vazamento entre organizações vira FALHA com a contagem, sem dados
   assert.equal(resultados.filter((x) => x.nivel !== 'OK').length, 1);
 });
 
+test('banco: veículo particular fora do dono ou da organização vira FALHA', async () => {
+  const { pool } = poolFalso((sql) => {
+    if (sql.includes('FROM veiculos v') && sql.includes('NOT EXISTS')) return 2;
+    if (sql.includes('v.motorista_id <> r.motorista_id')) return 1;
+    return 0;
+  });
+  const resultados = await verificarBanco(pool);
+  const dono = resultados.find(
+    (x) => x.item === 'Veículo particular de quem não é motorista da organização',
+  );
+  const rota = resultados.find((x) => x.item === 'Rota com veículo particular de outro motorista');
+  assert.equal(dono?.nivel, 'FALHA');
+  assert.match(dono?.detalhe ?? '', /^2 /);
+  assert.equal(rota?.nivel, 'FALHA');
+  assert.match(rota?.detalhe ?? '', /^1 /);
+  assert.equal(resultados.filter((x) => x.nivel !== 'OK').length, 2);
+});
+
 test('banco: viagem esquecida em andamento é só AVISO (não derruba o CI)', async () => {
   const { pool } = poolFalso((sql) => (sql.includes("interval '12 hours'") ? 1 : 0));
   const r = (await verificarBanco(pool)).find((x) => x.item === 'Viagem esquecida em andamento');
