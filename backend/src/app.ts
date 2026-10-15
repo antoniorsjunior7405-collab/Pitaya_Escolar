@@ -9,7 +9,13 @@ import {
   criarAdminService,
   type AdminRepository,
 } from './modules/admin/index.js';
-import { criarAuthRoutes, criarAuthService, type AuthRepository } from './modules/auth/index.js';
+import {
+  criarAuthRoutes,
+  criarAuthService,
+  criarRecuperacaoService,
+  type AuthRepository,
+  type RecuperacaoRepository,
+} from './modules/auth/index.js';
 import { healthRoutes } from './modules/health/index.js';
 import {
   criarMotoristaRoutes,
@@ -21,11 +27,15 @@ import {
   criarResponsavelService,
   type ResponsavelRepository,
 } from './modules/responsavel/index.js';
+import { criarEnviadorDeLog, type EnviadorEmail } from './shared/email/email.js';
 import { registerAuth } from './shared/plugins/authenticate.js';
 import { registerErrorHandler } from './shared/plugins/error-handler.js';
 
 export type AppDeps = {
   authRepository: AuthRepository;
+  recuperacaoRepository: RecuperacaoRepository;
+  /** Provedor de e-mail. Ausente: usa o log do app (sem enviar de verdade). */
+  enviadorEmail?: EnviadorEmail | undefined;
   motoristaRepository: MotoristaRepository;
   responsavelRepository: ResponsavelRepository;
   adminRepository: AdminRepository;
@@ -79,9 +89,18 @@ export async function buildApp(deps: AppDeps) {
   await registerAuth(app);
 
   const authService = criarAuthService(deps.authRepository, (claims) => app.jwt.sign(claims));
+  const recuperacaoService = criarRecuperacaoService(
+    deps.recuperacaoRepository,
+    deps.enviadorEmail ?? criarEnviadorDeLog(app.log, config.NODE_ENV === 'development'),
+    {
+      urlRedefinirSenha: config.EMAIL_URL_REDEFINIR_SENHA,
+      // Só o erro: a mensagem de e-mail tem o link com o token e não pode ir para o log.
+      aoFalharEnvio: (err) => app.log.error({ err }, 'falha ao enviar e-mail'),
+    },
+  );
 
   await app.register(healthRoutes);
-  await app.register(criarAuthRoutes(authService), { prefix: '/v1/auth' });
+  await app.register(criarAuthRoutes(authService, recuperacaoService), { prefix: '/v1/auth' });
 
   // Cada área exige o seu papel (hook no escopo do módulo).
   await app.register(criarMotoristaRoutes(criarMotoristaService(deps.motoristaRepository)), {

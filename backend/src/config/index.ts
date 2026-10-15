@@ -22,6 +22,14 @@ const schema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(30),
   // Fuso usado para "hoje" nas viagens (o servidor roda em UTC).
   TZ_NEGOCIO: z.string().default('America/Sao_Paulo'),
+  // E-mail transacional (recuperação de senha) via Resend. Sem a chave, em desenvolvimento o
+  // link aparece no log; em produção o envio fica desligado (e o servidor avisa ao subir).
+  EMAIL_RESEND_API_KEY: z.string().min(1).optional(),
+  // O domínio do remetente precisa estar verificado no Resend. O padrão é o remetente de
+  // teste do Resend, que só entrega para o e-mail da própria conta Resend.
+  EMAIL_REMETENTE: z.string().min(3).default('Pitaya Escolar <onboarding@resend.dev>'),
+  // Endereço que o link do e-mail abre (deep link do app, ou uma página https que o redireciona).
+  EMAIL_URL_REDEFINIR_SENHA: z.url().default('pitayaescolar://redefinir-senha'),
 });
 
 export const config = schema.parse(process.env);

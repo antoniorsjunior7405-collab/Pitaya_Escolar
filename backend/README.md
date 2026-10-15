@@ -22,6 +22,10 @@ npm run audit:seguranca -- --url https://pitaya-escolar.onrender.com   # + API e
 npm run audit:seguranca -- --sem-banco --url http://localhost:3333     # só config + API local
 ```
 
+### Recuperação de acesso ("esqueci a senha")
+
+`npm run audit:recuperacao` mostra a arquitetura recomendada do fluxo (OWASP Forgot Password) e confere os requisitos RA0–RA13 no código. Enquanto o fluxo não existe, eles aparecem como pendentes; quando surgir uma rota de recuperação, passam a ser conferidos. Checagem estática: não precisa de `.env` nem de banco. Use `-- --curto` para uma linha por item. Os caminhos `arquivo:linha` são clicáveis no terminal do VS Code.
+
 ## Estrutura
 
 `src/app.ts` monta a aplicação, `src/server.ts` sobe o servidor, `src/config/` valida o ambiente, `src/modules/<dominio>/` contém cada componente de negócio e `src/shared/` o código comum.

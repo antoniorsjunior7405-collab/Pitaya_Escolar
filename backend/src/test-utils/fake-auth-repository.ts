@@ -83,5 +83,5 @@ export function criarFakeAuthRepository(opts: { convite?: string } = {}) {
     },
   };
 
-  return { repo, convite, usuarios };
+  return { repo, convite, usuarios, tokens };
 }

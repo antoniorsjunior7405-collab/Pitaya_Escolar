@@ -22,6 +22,7 @@ const naoUsado = <T extends object>(nome: string) => parcial<T>(nome);
 export function depsDeTeste(overrides: Partial<AppDeps> = {}): AppDeps {
   return {
     authRepository: criarFakeAuthRepository().repo,
+    recuperacaoRepository: naoUsado('recuperacaoRepository'),
     motoristaRepository: naoUsado('motoristaRepository'),
     responsavelRepository: naoUsado('responsavelRepository'),
     adminRepository: naoUsado('adminRepository'),
