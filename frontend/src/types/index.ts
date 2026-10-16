@@ -73,3 +73,47 @@ export type FilhoResumo = {
 };
 
 export type FilhoDetalhe = FilhoResumo & { posicao: Posicao | null };
+
+// ── Vínculo família–motorista (backend/src/modules/vinculos/vinculos.schemas.ts) ──
+
+/** EXPIRADA = o motorista não respondeu dentro do prazo. */
+export type EstadoPedido = 'PENDENTE' | 'ACEITA' | 'RECUSADA' | 'CANCELADA' | 'EXPIRADA';
+
+/** O que a busca mostra de um motorista: só dados públicos (sem telefone, e-mail ou placa). */
+export type MotoristaPublico = {
+  id: string;
+  nome: string;
+  regiaoAtendimento: string | null;
+  apresentacao: string | null;
+  veiculoModelo: string | null;
+};
+
+/** Página de uma listagem. proximoCursor null = última página. */
+export type Pagina<T> = { itens: T[]; proximoCursor: string | null };
+
+/** Pedido de transporte visto pelo responsável (tela de espera). */
+export type Pedido = {
+  id: string;
+  estado: EstadoPedido;
+  criadoEm: string;
+  expiraEm: string;
+  respondidaEm: string | null;
+  aluno: { id: string; nome: string };
+  motorista: {
+    id: string;
+    nome: string;
+    regiaoAtendimento: string | null;
+    /** Só vem depois que o motorista aceita. */
+    telefone: string | null;
+  };
+};
+
+/** Pedido visto pelo motorista: só primeiros nomes até ele aceitar. */
+export type PedidoRecebido = {
+  id: string;
+  estado: EstadoPedido;
+  criadoEm: string;
+  expiraEm: string;
+  alunoPrimeiroNome: string;
+  responsavelPrimeiroNome: string;
+};

@@ -100,7 +100,16 @@ export type FilhoRow = { id: string; nome: string };
 export const NOME_ANONIMIZADO = 'Aluno removido';
 
 export function createResponsavelRepository(db: Db): ResponsavelRepository {
-  const { alunos, responsaveisAlunos, rotaAlunos, eventosViagem, notificacoes, usuarios } = schema;
+  const {
+    alunos,
+    responsaveisAlunos,
+    rotaAlunos,
+    eventosViagem,
+    notificacoes,
+    usuarios,
+    solicitacoesVinculo,
+    vinculosMotoristaAluno,
+  } = schema;
 
   // Aluno da família do responsável, conferido junto da escrita (evita IDOR).
   const daFamilia = (responsavelId: string, alunoId: string) =>
@@ -279,9 +288,30 @@ export function createResponsavelRepository(db: Db): ResponsavelRepository {
             .where(eq(alunos.id, aluno.id));
           await tx.delete(responsaveisAlunos).where(eq(responsaveisAlunos.alunoId, aluno.id));
           await tx.delete(rotaAlunos).where(eq(rotaAlunos.alunoId, aluno.id));
+          // Pedidos em aberto e vínculos com motoristas acabam junto: o motorista não pode
+          // aceitar nem continuar transportando um aluno que a família excluiu (LGPD).
+          const fim = new Date();
+          await tx
+            .update(solicitacoesVinculo)
+            .set({ estado: 'CANCELADA', respondidaEm: fim })
+            .where(
+              and(
+                eq(solicitacoesVinculo.alunoId, aluno.id),
+                eq(solicitacoesVinculo.estado, 'PENDENTE'),
+              ),
+            );
+          await tx
+            .update(vinculosMotoristaAluno)
+            .set({ fimEm: fim })
+            .where(
+              and(
+                eq(vinculosMotoristaAluno.alunoId, aluno.id),
+                isNull(vinculosMotoristaAluno.fimEm),
+              ),
+            );
           resultado = 'anonimizado';
         } else {
-          // Vínculos e paradas em rota caem junto (ON DELETE CASCADE).
+          // Vínculos, paradas em rota e pedidos a motoristas caem junto (ON DELETE CASCADE).
           await tx.delete(alunos).where(eq(alunos.id, aluno.id));
           resultado = 'excluido';
         }

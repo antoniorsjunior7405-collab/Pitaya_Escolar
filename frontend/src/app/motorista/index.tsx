@@ -63,6 +63,10 @@ export default function MinhasRotas() {
         ListFooterComponent={
           <View style={styles.rodape}>
             <PrimaryButton
+              titulo="Pedidos de transporte"
+              onPress={() => router.push('/motorista/pedidos')}
+            />
+            <PrimaryButton
               titulo="Ver histórico"
               onPress={() => router.push('/motorista/historico')}
             />

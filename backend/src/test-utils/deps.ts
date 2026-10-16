@@ -26,6 +26,7 @@ export function depsDeTeste(overrides: Partial<AppDeps> = {}): AppDeps {
     motoristaRepository: naoUsado('motoristaRepository'),
     responsavelRepository: naoUsado('responsavelRepository'),
     adminRepository: naoUsado('adminRepository'),
+    vinculosRepository: naoUsado('vinculosRepository'),
     ...overrides,
   };
 }

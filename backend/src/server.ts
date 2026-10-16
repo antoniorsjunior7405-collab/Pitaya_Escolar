@@ -5,6 +5,7 @@ import { createAdminRepository } from './modules/admin/index.js';
 import { createAuthRepository, createRecuperacaoRepository } from './modules/auth/index.js';
 import { createMotoristaRepository } from './modules/motorista/index.js';
 import { createResponsavelRepository } from './modules/responsavel/index.js';
+import { createVinculosRepository } from './modules/vinculos/index.js';
 import { criarEnviadorResend } from './shared/email/email.js';
 
 const { db, pool } = createDb();
@@ -18,6 +19,7 @@ const app = await buildApp({
   motoristaRepository: createMotoristaRepository(db),
   responsavelRepository: createResponsavelRepository(db),
   adminRepository: createAdminRepository(db),
+  vinculosRepository: createVinculosRepository(db),
 });
 if (!config.EMAIL_RESEND_API_KEY && config.NODE_ENV === 'production') {
   app.log.warn(

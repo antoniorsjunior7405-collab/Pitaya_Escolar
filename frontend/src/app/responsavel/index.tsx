@@ -42,7 +42,7 @@ export default function MeusFilhos() {
         ListEmptyComponent={
           <EstadoVazio
             titulo="Nenhum filho vinculado"
-            descricao="Peça à escola para vincular seus filhos à sua conta."
+            descricao="Peça à escola para vincular seus filhos à sua conta ou busque o motorista com quem você combinou."
           />
         }
         renderItem={({ item }) => (
@@ -67,6 +67,15 @@ export default function MeusFilhos() {
         )}
         ListFooterComponent={
           <View style={styles.rodape}>
+            <PrimaryButton
+              titulo="Buscar motorista"
+              onPress={() => router.push('/responsavel/buscar-motorista')}
+            />
+            <PrimaryButton
+              titulo="Meus pedidos"
+              variante="secundario"
+              onPress={() => router.push('/responsavel/pedidos')}
+            />
             <PrimaryButton titulo="Sair" variante="secundario" onPress={() => void sair()} />
           </View>
         }
@@ -80,5 +89,5 @@ const styles = StyleSheet.create({
   lista: { paddingVertical: Spacing.three, gap: Spacing.three },
   titulo: { fontSize: 16 },
   badges: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
-  rodape: { marginTop: Spacing.three },
+  rodape: { marginTop: Spacing.three, gap: Spacing.two },
 });

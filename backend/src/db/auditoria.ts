@@ -2,13 +2,20 @@ import type { Db } from './client.js';
 import { registrosAuditoria } from './schema.js';
 
 export type AcaoAuditada =
-  'ALUNO_CRIADO' | 'ALUNO_EDITADO' | 'ALUNO_EXCLUIDO' | 'ALUNO_ANONIMIZADO';
+  | 'ALUNO_CRIADO'
+  | 'ALUNO_EDITADO'
+  | 'ALUNO_EXCLUIDO'
+  | 'ALUNO_ANONIMIZADO'
+  | 'SOLICITACAO_CRIADA'
+  | 'SOLICITACAO_CANCELADA'
+  | 'SOLICITACAO_ACEITA'
+  | 'SOLICITACAO_RECUSADA';
 
 export type RegistroAuditoria = {
   usuarioId: string;
   organizacaoId: string | null;
   acao: AcaoAuditada;
-  entidade: 'aluno';
+  entidade: 'aluno' | 'solicitacao';
   entidadeId: string;
 };
 

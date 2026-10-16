@@ -27,6 +27,12 @@ import {
   criarResponsavelService,
   type ResponsavelRepository,
 } from './modules/responsavel/index.js';
+import {
+  criarVinculosMotoristaRoutes,
+  criarVinculosResponsavelRoutes,
+  criarVinculosService,
+  type VinculosRepository,
+} from './modules/vinculos/index.js';
 import { criarEnviadorDeLog, type EnviadorEmail } from './shared/email/email.js';
 import { registerAuth } from './shared/plugins/authenticate.js';
 import { registerErrorHandler } from './shared/plugins/error-handler.js';
@@ -39,6 +45,7 @@ export type AppDeps = {
   motoristaRepository: MotoristaRepository;
   responsavelRepository: ResponsavelRepository;
   adminRepository: AdminRepository;
+  vinculosRepository: VinculosRepository;
 };
 
 // Monta a aplicação sem chamar listen(), para os testes usarem app.inject().
@@ -112,6 +119,13 @@ export async function buildApp(deps: AppDeps) {
   await app.register(criarAdminRoutes(criarAdminService(deps.adminRepository)), {
     prefix: '/v1/admin',
   });
+
+  // Vínculo família–motorista: uma área por papel, cada uma com o próprio hook de papel.
+  const vinculosService = criarVinculosService(deps.vinculosRepository);
+  await app.register(criarVinculosResponsavelRoutes(vinculosService), {
+    prefix: '/v1/responsavel',
+  });
+  await app.register(criarVinculosMotoristaRoutes(vinculosService), { prefix: '/v1/motorista' });
 
   return app;
 }
