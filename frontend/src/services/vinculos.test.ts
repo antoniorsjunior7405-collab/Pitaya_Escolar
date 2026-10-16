@@ -4,6 +4,8 @@ import {
   filtroValido,
   INTERVALO_PEDIDO_MS,
   intervaloDoPedido,
+  listarPedidos,
+  listarPedidosRecebidos,
   pedirTransporte,
   responderPedido,
 } from '@/services/vinculos';
@@ -36,6 +38,16 @@ test('buscarMotoristas: envia só os campos válidos, codificados, e o cursor da
   expect(apiMock).toHaveBeenCalledWith(
     '/v1/responsavel/motoristas?termo=S%C3%A3o%20Jos%C3%A9&cursor=cursor-1',
   );
+});
+
+test('listarPedidos e listarPedidosRecebidos: primeira página sem cursor; as seguintes com ele', async () => {
+  apiMock.mockResolvedValue({ itens: [], proximoCursor: null });
+
+  await listarPedidos(null);
+  await listarPedidosRecebidos('c/1');
+
+  expect(apiMock).toHaveBeenNthCalledWith(1, '/v1/responsavel/solicitacoes');
+  expect(apiMock).toHaveBeenNthCalledWith(2, '/v1/motorista/solicitacoes?cursor=c%2F1');
 });
 
 test('pedirTransporte e responderPedido: ids no corpo ou codificados no caminho', async () => {

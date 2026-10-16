@@ -88,7 +88,8 @@ export type MotoristaPublico = {
   veiculoModelo: string | null;
 };
 
-export type PaginaMotoristas = { itens: MotoristaPublico[]; proximoCursor: string | null };
+/** Página de uma listagem. proximoCursor null = última página. */
+export type Pagina<T> = { itens: T[]; proximoCursor: string | null };
 
 /** Pedido de transporte visto pelo responsável (tela de espera). */
 export type Pedido = {

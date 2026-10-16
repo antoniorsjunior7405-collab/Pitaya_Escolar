@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,9 +19,11 @@ import { chavesVinculos, listarPedidos } from '@/services/vinculos';
 export default function MeusPedidos() {
   const responsivo = useResponsive();
   const router = useRouter();
-  const pedidos = useQuery({
+  const pedidos = useInfiniteQuery({
     queryKey: chavesVinculos.pedidos,
-    queryFn: listarPedidos,
+    queryFn: ({ pageParam }) => listarPedidos(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (pagina) => pagina.proximoCursor,
     refetchInterval: 60_000,
   });
 
@@ -30,14 +32,18 @@ export default function MeusPedidos() {
     return <EstadoErro erro={pedidos.error} onTentarNovamente={() => void pedidos.refetch()} />;
   }
 
+  // Momento da última consulta: "há quanto tempo" sem relógio no render.
+  const agora = pedidos.dataUpdatedAt;
+
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <FlatList
-        data={pedidos.data}
+        data={pedidos.data.pages.flatMap((p) => p.itens)}
         keyExtractor={(p) => p.id}
         contentContainerStyle={[styles.lista, responsivo.conteudo]}
         refreshing={pedidos.isRefetching}
         onRefresh={() => void pedidos.refetch()}
+        onEndReached={() => pedidos.hasNextPage && void pedidos.fetchNextPage()}
         ListEmptyComponent={
           <EstadoVazio
             titulo="Nenhum pedido ainda"
@@ -54,7 +60,7 @@ export default function MeusPedidos() {
               {item.motorista.nome}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Para {item.aluno.nome} · {tempoDesde(item.criadoEm)}
+              Para {item.aluno.nome} · {tempoDesde(item.criadoEm, agora)}
             </ThemedText>
             <ThemedText type="smallBold">{ROTULO_DO_PEDIDO[item.estado]}</ThemedText>
           </Card>

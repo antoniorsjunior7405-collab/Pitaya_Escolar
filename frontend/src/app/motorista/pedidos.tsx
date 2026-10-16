@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,9 +27,11 @@ export default function PedidosRecebidos() {
   const queryClient = useQueryClient();
   const [respondendo, setRespondendo] = useState<Resposta | null>(null);
 
-  const pedidos = useQuery({
+  const pedidos = useInfiniteQuery({
     queryKey: chavesVinculos.recebidos,
-    queryFn: listarPedidosRecebidos,
+    queryFn: ({ pageParam }) => listarPedidosRecebidos(pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (pagina) => pagina.proximoCursor,
     refetchInterval: 60_000,
   });
   const responder = useMutation({
@@ -49,15 +51,18 @@ export default function PedidosRecebidos() {
 
   const ocupado = (id: string, decisao: Resposta['decisao']) =>
     respondendo?.id === id && respondendo.decisao === decisao;
+  // Momento da última consulta: "recebido há" e "vence em" sem relógio no render.
+  const agora = pedidos.dataUpdatedAt;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <FlatList
-        data={pedidos.data}
+        data={pedidos.data.pages.flatMap((p) => p.itens)}
         keyExtractor={(p) => p.id}
         contentContainerStyle={[styles.lista, responsivo.conteudo]}
         refreshing={pedidos.isRefetching}
         onRefresh={() => void pedidos.refetch()}
+        onEndReached={() => pedidos.hasNextPage && void pedidos.fetchNextPage()}
         ListHeaderComponent={
           responder.isError ? (
             <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
@@ -77,10 +82,11 @@ export default function PedidosRecebidos() {
               {item.alunoPrimeiroNome}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              Responsável: {item.responsavelPrimeiroNome} · recebido {tempoDesde(item.criadoEm)}
+              Responsável: {item.responsavelPrimeiroNome} · recebido{' '}
+              {tempoDesde(item.criadoEm, agora)}
             </ThemedText>
             <ThemedText type="small" themeColor="textSecondary">
-              O pedido {textoDoPrazo(item.expiraEm)}
+              O pedido {textoDoPrazo(item.expiraEm, agora)}
             </ThemedText>
             <View style={styles.acoes}>
               <PrimaryButton

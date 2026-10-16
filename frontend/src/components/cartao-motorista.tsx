@@ -1,3 +1,5 @@
+import { StyleSheet } from 'react-native';
+
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { PrimaryButton } from '@/components/ui/primary-button';
@@ -15,7 +17,7 @@ type Props = {
 export function CartaoMotorista({ motorista, nomeDoFilho, onPedir, carregando }: Props) {
   return (
     <Card>
-      <ThemedText type="smallBold" style={{ fontSize: 16 }}>
+      <ThemedText type="smallBold" style={styles.nome}>
         {motorista.nome}
       </ThemedText>
       {motorista.regiaoAtendimento ? (
@@ -40,3 +42,7 @@ export function CartaoMotorista({ motorista, nomeDoFilho, onPedir, carregando }:
     </Card>
   );
 }
+
+const styles = StyleSheet.create({
+  nome: { fontSize: 16 },
+});

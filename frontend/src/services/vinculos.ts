@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import type { EstadoPedido, PaginaMotoristas, Pedido, PedidoRecebido } from '@/types';
+import type { EstadoPedido, MotoristaPublico, Pagina, Pedido, PedidoRecebido } from '@/types';
 
 // Busca de motoristas, pedido de transporte (tela de espera) e resposta do motorista.
 // As telas usam estas funções (nunca URLs diretas).
@@ -40,7 +40,7 @@ function queryDaBusca({ termo, regiao }: FiltroBusca, cursor: string | null) {
 // ── Responsável ──────────────────────────────────────────────────────────────
 
 export const buscarMotoristas = (filtro: FiltroBusca, cursor: string | null) =>
-  api<PaginaMotoristas>(`/v1/responsavel/motoristas?${queryDaBusca(filtro, cursor)}`);
+  api<Pagina<MotoristaPublico>>(`/v1/responsavel/motoristas?${queryDaBusca(filtro, cursor)}`);
 
 export const pedirTransporte = (motoristaId: string, alunoId: string) =>
   api<Pedido>('/v1/responsavel/solicitacoes', {
@@ -48,7 +48,11 @@ export const pedirTransporte = (motoristaId: string, alunoId: string) =>
     body: { motoristaId, alunoId },
   });
 
-export const listarPedidos = () => api<Pedido[]>('/v1/responsavel/solicitacoes?limit=20');
+/** Query de uma página: só o cursor (o servidor usa o limite padrão). */
+const doCursor = (cursor: string | null) => (cursor ? `?cursor=${encodeURIComponent(cursor)}` : '');
+
+export const listarPedidos = (cursor: string | null) =>
+  api<Pagina<Pedido>>(`/v1/responsavel/solicitacoes${doCursor(cursor)}`);
 
 export const detalharPedido = (pedidoId: string) =>
   api<Pedido>(`/v1/responsavel/solicitacoes/${encodeURIComponent(pedidoId)}`);
@@ -60,8 +64,8 @@ export const cancelarPedido = (pedidoId: string) =>
 
 // ── Motorista ────────────────────────────────────────────────────────────────
 
-export const listarPedidosRecebidos = () =>
-  api<PedidoRecebido[]>('/v1/motorista/solicitacoes?limit=20');
+export const listarPedidosRecebidos = (cursor: string | null) =>
+  api<Pagina<PedidoRecebido>>(`/v1/motorista/solicitacoes${doCursor(cursor)}`);
 
 export const responderPedido = (pedidoId: string, decisao: 'aceitar' | 'recusar') =>
   api<PedidoRecebido>(`/v1/motorista/solicitacoes/${encodeURIComponent(pedidoId)}/${decisao}`, {
