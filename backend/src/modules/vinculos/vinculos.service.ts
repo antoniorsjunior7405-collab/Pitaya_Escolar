@@ -10,7 +10,7 @@ import type {
   SolicitacaoRow,
   VinculosRepository,
 } from './vinculos.repository.js';
-import type { BuscaMotoristasInput, PedidoInput } from './vinculos.schemas.js';
+import type { BuscaMotoristasInput, ListaInput, PedidoInput } from './vinculos.schemas.js';
 
 /** Quanto tempo o motorista tem para responder antes de o pedido vencer sozinho. */
 export const PRAZO_PEDIDO_DIAS = 7;
@@ -25,6 +25,12 @@ const PEDIDO_NAO_ENCONTRADO = 'Pedido não encontrado';
 /** Só o primeiro nome: o motorista não precisa do nome completo antes do aceite. */
 export function primeiroNome(nome: string): string {
   return nome.trim().split(/\s+/)[0] ?? '';
+}
+
+/** Página cheia: pode haver mais. O cursor é o id do último item (o repositório ordena com id). */
+function paginar<T extends { id: string }>(itens: T[], limit: number) {
+  const proximoCursor = itens.length === limit ? (itens.at(-1)?.id ?? null) : null;
+  return { itens, proximoCursor };
 }
 
 function paraResponsavel(r: SolicitacaoRow) {
@@ -67,10 +73,7 @@ export function criarVinculosService(repo: VinculosRepository, agora = () => new
     // ── Responsável ────────────────────────────────────────────────────────
 
     async buscarMotoristas(_m: Membro, filtro: BuscaMotoristasInput) {
-      const itens = await repo.buscarMotoristas(filtro);
-      // Página cheia: pode haver mais. O cursor é o último da página (ordem nome, id).
-      const proximoCursor = itens.length === filtro.limit ? (itens.at(-1)?.id ?? null) : null;
-      return { itens, proximoCursor };
+      return paginar(await repo.buscarMotoristas(filtro), filtro.limit);
     },
 
     /** Idempotente: repetir o mesmo pedido devolve o pendente que já existe (criada: false). */
@@ -111,8 +114,9 @@ export function criarVinculosService(repo: VinculosRepository, agora = () => new
       }
     },
 
-    async listarSolicitacoes(m: Membro, limit: number) {
-      return (await repo.listarSolicitacoesDoResponsavel(m.usuarioId, limit)).map(paraResponsavel);
+    async listarSolicitacoes(m: Membro, lista: ListaInput) {
+      const rows = await repo.listarSolicitacoesDoResponsavel(m.usuarioId, lista);
+      return paginar(rows.map(paraResponsavel), lista.limit);
     },
 
     detalharSolicitacao,
@@ -128,8 +132,9 @@ export function criarVinculosService(repo: VinculosRepository, agora = () => new
 
     // ── Motorista ──────────────────────────────────────────────────────────
 
-    async listarPedidosRecebidos(m: Membro, limit: number) {
-      return (await repo.listarPedidosRecebidos(m.usuarioId, limit)).map(paraMotorista);
+    async listarPedidosRecebidos(m: Membro, lista: ListaInput) {
+      const rows = await repo.listarPedidosRecebidos(m.usuarioId, lista);
+      return paginar(rows.map(paraMotorista), lista.limit);
     },
 
     /** Aceitar ou recusar. Pedido de outro motorista responde 404; conta não aprovada, 403. */

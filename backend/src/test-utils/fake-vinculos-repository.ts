@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { AcaoAuditada } from '../db/auditoria.js';
 import type {
+  Pagina,
   PedidoRecebidoRow,
   SolicitacaoRow,
   VinculosRepository,
@@ -85,6 +86,13 @@ export function criarFakeVinculosRepository() {
       responsavelNome: aluno.responsavelNome,
     };
   };
+  // Ordem (criado_em, id), como no banco. O cursor fora da lista (de outra pessoa) dá página vazia.
+  const cronologica = (a: SolicitacaoFake, b: SolicitacaoFake) =>
+    a.criadoEm.getTime() - b.criadoEm.getTime() || a.id.localeCompare(b.id);
+  const paginar = (ordenadas: SolicitacaoFake[], { limit, cursor }: Pagina) => {
+    const inicio = cursor ? ordenadas.findIndex((s) => s.id === cursor) + 1 : 0;
+    return cursor && inicio === 0 ? [] : ordenadas.slice(inicio, inicio + limit);
+  };
   const auditar = (usuarioId: string, acao: AcaoAuditada, entidadeId: string) =>
     auditoria.push({ usuarioId, acao, entidadeId });
 
@@ -157,11 +165,11 @@ export function criarFakeVinculosRepository() {
       return { tipo: 'criada', solicitacao: linha(nova) };
     },
 
-    async listarSolicitacoesDoResponsavel(responsavelId, limit) {
-      return solicitacoes
+    async listarSolicitacoesDoResponsavel(responsavelId, pagina) {
+      const ordenadas = solicitacoes
         .filter((s) => s.responsavelId === responsavelId)
-        .slice(0, limit)
-        .map(linha);
+        .sort((a, b) => -cronologica(a, b));
+      return paginar(ordenadas, pagina).map(linha);
     },
 
     async buscarSolicitacaoDoResponsavel(responsavelId, solicitacaoId) {
@@ -183,8 +191,8 @@ export function criarFakeVinculosRepository() {
       return 'ok';
     },
 
-    async listarPedidosRecebidos(motoristaId, limit) {
-      return solicitacoes
+    async listarPedidosRecebidos(motoristaId, pagina) {
+      const ordenadas = solicitacoes
         .filter(
           (s) =>
             s.motoristaId === motoristaId &&
@@ -192,8 +200,8 @@ export function criarFakeVinculosRepository() {
             alunoAtivo(s.alunoId) &&
             visivel(motoristaId),
         )
-        .slice(0, limit)
-        .map(recebido);
+        .sort(cronologica);
+      return paginar(ordenadas, pagina).map(recebido);
     },
 
     async buscarPedidoRecebido(motoristaId, solicitacaoId) {

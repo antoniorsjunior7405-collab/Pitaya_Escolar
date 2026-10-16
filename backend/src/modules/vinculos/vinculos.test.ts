@@ -179,6 +179,30 @@ test('pedido: passar do limite de pendentes responde 422', async () => {
   assert.equal(excedente.statusCode, 422);
 });
 
+test('meus pedidos: página cheia traz cursor, que continua sem repetir; cursor alheio dá página vazia', async () => {
+  const { app, fake, aluno, pedir, comoResponsavel } = await cenario();
+  const ids = new Set<string>();
+  for (let i = 0; i < 3; i++) {
+    const res = await pedir({ motoristaId: fake.adicionarMotorista().id, alunoId: aluno.id });
+    ids.add(res.json<{ id: string }>().id);
+  }
+  type Pagina = { itens: { id: string }[]; proximoCursor: string | null };
+  const listar = async (query: string, headers = comoResponsavel()) =>
+    (
+      await app.inject({ method: 'GET', url: `${BASE_R}/solicitacoes${query}`, headers })
+    ).json<Pagina>();
+
+  const p1 = await listar('?limit=2');
+  const p2 = await listar(`?limit=2&cursor=${p1.proximoCursor}`);
+  const alheio = await listar(`?cursor=${p1.proximoCursor}`, comoResponsavel(randomUUID()));
+
+  assert.equal(p1.itens.length, 2);
+  assert.equal(p2.itens.length, 1);
+  assert.equal(p2.proximoCursor, null);
+  assert.deepEqual(new Set([...p1.itens, ...p2.itens].map((p) => p.id)), ids);
+  assert.deepEqual(alheio, { itens: [], proximoCursor: null });
+});
+
 test('tela de espera: status do pedido só para quem pediu; outra família recebe 404', async () => {
   const { app, motorista, aluno, pedir, comoResponsavel } = await cenario();
   const { id } = (await pedir({ motoristaId: motorista.id, alunoId: aluno.id })).json<{
@@ -223,16 +247,20 @@ test('aceite: motorista vê só primeiros nomes; aceitar libera o telefone e cri
     headers: comoResponsavel(),
   });
 
-  assert.deepEqual(recebidos.json(), [
-    {
-      id,
-      estado: 'PENDENTE',
-      criadoEm: recebidos.json<{ criadoEm: string }[]>()[0]?.criadoEm,
-      expiraEm: recebidos.json<{ expiraEm: string }[]>()[0]?.expiraEm,
-      alunoPrimeiroNome: 'Ana',
-      responsavelPrimeiroNome: 'Maria',
-    },
-  ]);
+  const [recebido] = recebidos.json<{ itens: { criadoEm: string; expiraEm: string }[] }>().itens;
+  assert.deepEqual(recebidos.json(), {
+    itens: [
+      {
+        id,
+        estado: 'PENDENTE',
+        criadoEm: recebido?.criadoEm,
+        expiraEm: recebido?.expiraEm,
+        alunoPrimeiroNome: 'Ana',
+        responsavelPrimeiroNome: 'Maria',
+      },
+    ],
+    proximoCursor: null,
+  });
   assert.equal(aceite.statusCode, 200);
   assert.equal(aceite.json<{ estado: string }>().estado, 'ACEITA');
   const s = status.json<{ estado: string; motorista: { telefone: string | null } }>();
@@ -336,7 +364,7 @@ test('prazo: pedido vencido aparece como EXPIRADA, sai da fila do motorista e n�
   });
 
   assert.equal(status.json<{ estado: string }>().estado, 'EXPIRADA');
-  assert.deepEqual(fila.json(), []);
+  assert.deepEqual(fila.json(), { itens: [], proximoCursor: null });
   assert.equal(aceite.statusCode, 409);
 });
 
@@ -363,7 +391,7 @@ test('aprovação revogada: pedido some da fila e aceitar ou recusar responde 40
     headers: comoMotorista(),
   });
 
-  assert.deepEqual(fila.json(), []);
+  assert.deepEqual(fila.json(), { itens: [], proximoCursor: null });
   assert.equal(aceite.statusCode, 403);
   assert.equal(recusa.statusCode, 403);
   assert.deepEqual(fake.vinculos, []);
@@ -387,7 +415,7 @@ test('aluno excluído pela família: pedido some da fila e o aceite responde 409
     headers: comoMotorista(),
   });
 
-  assert.deepEqual(fila.json(), []);
+  assert.deepEqual(fila.json(), { itens: [], proximoCursor: null });
   assert.equal(aceite.statusCode, 409);
   assert.deepEqual(fake.vinculos, []);
 });

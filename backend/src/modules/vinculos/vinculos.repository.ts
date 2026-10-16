@@ -65,6 +65,9 @@ export type ResultadoPedido =
         | 'limite';
     };
 
+/** Página de uma listagem: cursor = id do último item da página anterior. */
+export type Pagina = { limit: number; cursor?: string | undefined };
+
 /** Resultado de uma mudança de estado atômica (cancelar, aceitar, recusar). */
 export type ResultadoMudanca = 'ok' | 'nao-encontrada' | 'ja-respondida';
 /** Resposta do motorista: além da mudança, a conta dele precisa continuar habilitada. */
@@ -92,15 +95,19 @@ export interface VinculosRepository {
     maxPendentes: number;
     recusadaDesde: Date;
   }): Promise<ResultadoPedido>;
-  listarSolicitacoesDoResponsavel(responsavelId: string, limit: number): Promise<SolicitacaoRow[]>;
+  /** Mais recentes primeiro (criado_em, id), continuando depois do cursor. */
+  listarSolicitacoesDoResponsavel(responsavelId: string, lista: Pagina): Promise<SolicitacaoRow[]>;
   /** undefined se o pedido não é do responsável (sem IDOR). */
   buscarSolicitacaoDoResponsavel(
     responsavelId: string,
     solicitacaoId: string,
   ): Promise<SolicitacaoRow | undefined>;
   cancelarSolicitacao(responsavelId: string, solicitacaoId: string): Promise<ResultadoMudanca>;
-  /** Só pendentes e não vencidos de aluno ativo, endereçados a motorista ainda habilitado. */
-  listarPedidosRecebidos(motoristaId: string, limit: number): Promise<PedidoRecebidoRow[]>;
+  /**
+   * Só pendentes e não vencidos de aluno ativo, endereçados a motorista ainda habilitado. Mais
+   * antigos primeiro (criado_em, id), continuando depois do cursor.
+   */
+  listarPedidosRecebidos(motoristaId: string, lista: Pagina): Promise<PedidoRecebidoRow[]>;
   buscarPedidoRecebido(
     motoristaId: string,
     solicitacaoId: string,
@@ -383,10 +390,18 @@ export function createVinculosRepository(db: Db): VinculosRepository {
       });
     },
 
-    listarSolicitacoesDoResponsavel(responsavelId, limit) {
+    listarSolicitacoesDoResponsavel(responsavelId, { limit, cursor }) {
       return selecionarSolicitacoes(db)
-        .where(eq(s.responsavelId, responsavelId))
-        .orderBy(desc(s.criadoEm))
+        .where(
+          and(
+            eq(s.responsavelId, responsavelId),
+            // O cursor só vale se o pedido for do próprio responsável: de outro, a página vem vazia.
+            cursor
+              ? sql`(${s.criadoEm}, ${s.id}) < (SELECT c.criado_em, c.id FROM solicitacoes_vinculo c WHERE c.id = ${cursor} AND c.responsavel_id = ${responsavelId})`
+              : undefined,
+          ),
+        )
+        .orderBy(desc(s.criadoEm), desc(s.id))
         .limit(limit);
     },
 
@@ -425,7 +440,7 @@ export function createVinculosRepository(db: Db): VinculosRepository {
       });
     },
 
-    listarPedidosRecebidos(motoristaId, limit) {
+    listarPedidosRecebidos(motoristaId, { limit, cursor }) {
       return selecionarPedidosRecebidos(db)
         .where(
           and(
@@ -433,9 +448,12 @@ export function createVinculosRepository(db: Db): VinculosRepository {
             pendenteValido,
             eq(alunos.ativo, true),
             exists(motoristaHabilitado(db, motoristaId)),
+            cursor
+              ? sql`(${s.criadoEm}, ${s.id}) > (SELECT c.criado_em, c.id FROM solicitacoes_vinculo c WHERE c.id = ${cursor} AND c.motorista_id = ${motoristaId})`
+              : undefined,
           ),
         )
-        .orderBy(asc(s.criadoEm))
+        .orderBy(asc(s.criadoEm), asc(s.id))
         .limit(limit);
     },
 

@@ -17,6 +17,11 @@ export const solicitacaoParams = z.object({ solicitacaoId: z.uuid() });
 
 const limit = (max: number) => z.coerce.number().int().min(1).max(max).default(max);
 
+// Toda listagem é paginada por cursor (BOAS_PRATICAS §6): o cursor é o id do último item da
+// página anterior, e proximoCursor null indica a última página.
+const pagina = <T extends z.ZodType>(item: T) =>
+  z.object({ itens: z.array(item), proximoCursor: z.uuid().nullable() });
+
 // Busca: filtro obrigatório (nome ou região com 3+ letras). Não existe "listar todos": a
 // família procura alguém com quem já combinou, e a busca não vira lista de contatos.
 export const buscaMotoristasQuery = z
@@ -39,12 +44,9 @@ export const motoristaPublico = z.object({
   veiculoModelo: z.string().nullable(),
 });
 
-export const buscaMotoristasResponse = z.object({
-  itens: z.array(motoristaPublico),
-  proximoCursor: z.uuid().nullable(),
-});
+export const buscaMotoristasResponse = pagina(motoristaPublico);
 
-export const listaQuery = z.strictObject({ limit: limit(20) });
+export const listaQuery = z.strictObject({ limit: limit(20), cursor: z.uuid().optional() });
 
 export const pedidoBody = z.strictObject({ motoristaId: z.uuid(), alunoId: z.uuid() });
 
@@ -76,6 +78,10 @@ export const pedidoRecebido = z.object({
   responsavelPrimeiroNome: z.string(),
 });
 
+export const paginaSolicitacoes = pagina(solicitacao);
+export const paginaPedidosRecebidos = pagina(pedidoRecebido);
+
 export type BuscaMotoristasInput = z.infer<typeof buscaMotoristasQuery>;
+export type ListaInput = z.infer<typeof listaQuery>;
 export type PedidoInput = z.infer<typeof pedidoBody>;
 export type EstadoSolicitacao = z.infer<typeof estado>;

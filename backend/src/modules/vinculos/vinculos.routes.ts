@@ -1,11 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { z } from 'zod';
 import { exigirPapel, membroDe } from '../../shared/acesso/acesso.js';
 import {
   buscaMotoristasQuery,
   buscaMotoristasResponse,
   listaQuery,
+  paginaPedidosRecebidos,
+  paginaSolicitacoes,
   pedidoBody,
   pedidoRecebido,
   solicitacao,
@@ -37,8 +38,8 @@ export function criarVinculosResponsavelRoutes(service: VinculosService) {
 
     r.get(
       '/solicitacoes',
-      { schema: { querystring: listaQuery, response: { 200: z.array(solicitacao) } } },
-      async (req) => service.listarSolicitacoes(membroDe(req), req.query.limit),
+      { schema: { querystring: listaQuery, response: { 200: paginaSolicitacoes } } },
+      async (req) => service.listarSolicitacoes(membroDe(req), req.query),
     );
 
     r.post(
@@ -77,8 +78,8 @@ export function criarVinculosMotoristaRoutes(service: VinculosService) {
 
     r.get(
       '/solicitacoes',
-      { schema: { querystring: listaQuery, response: { 200: z.array(pedidoRecebido) } } },
-      async (req) => service.listarPedidosRecebidos(membroDe(req), req.query.limit),
+      { schema: { querystring: listaQuery, response: { 200: paginaPedidosRecebidos } } },
+      async (req) => service.listarPedidosRecebidos(membroDe(req), req.query),
     );
 
     r.post(
