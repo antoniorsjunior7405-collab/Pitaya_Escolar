@@ -162,7 +162,14 @@ export function criarFakeMotoristaRepository() {
       telefone: null,
       apresentacao: null,
       regiaoAtendimento: null,
+      aprovadoEm: null,
     });
+  }
+
+  /** O que o script aprovar:motorista faz no banco. */
+  function aprovar(usuarioId: string) {
+    const atual = perfis.get(usuarioId);
+    if (atual) perfis.set(usuarioId, { ...atual, aprovadoEm: new Date() });
   }
 
   function adicionarRota(input: { organizacaoId: string; motoristaId: string; alunos?: number }) {
@@ -185,5 +192,5 @@ export function criarFakeMotoristaRepository() {
     return rota;
   }
 
-  return { repo, adicionarRota, adicionarUsuario, posicoes, eventos, veiculos };
+  return { repo, adicionarRota, adicionarUsuario, aprovar, posicoes, eventos, veiculos };
 }

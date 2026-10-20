@@ -98,6 +98,8 @@ export const perfil = z.object({
   telefone: z.string().nullable(),
   apresentacao: z.string().nullable(),
   regiaoAtendimento: z.string().nullable(),
+  // null = aguardando aprovação: não aparece na busca das famílias.
+  aprovadoEm: z.date().nullable(),
   veiculos: z.array(veiculo),
 });
 
