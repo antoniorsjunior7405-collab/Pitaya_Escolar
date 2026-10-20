@@ -38,9 +38,11 @@ export type PerfilRow = {
   telefone: string | null;
   apresentacao: string | null;
   regiaoAtendimento: string | null;
+  /** null enquanto a plataforma não confere os documentos: o motorista não aparece na busca. */
+  aprovadoEm: Date | null;
 };
 
-export type DadosPerfil = Omit<PerfilRow, 'email'>;
+export type DadosPerfil = Omit<PerfilRow, 'email' | 'aprovadoEm'>;
 
 export type VeiculoRow = { id: string; placa: string; modelo: string; capacidade: number | null };
 
@@ -305,6 +307,7 @@ export function createMotoristaRepository(db: Db): MotoristaRepository {
           telefone: usuarios.telefone,
           apresentacao: perfisMotorista.apresentacao,
           regiaoAtendimento: perfisMotorista.regiaoAtendimento,
+          aprovadoEm: perfisMotorista.aprovadoEm,
         })
         .from(usuarios)
         // LEFT JOIN: o motorista recém-cadastrado ainda não tem linha em perfis_motorista.

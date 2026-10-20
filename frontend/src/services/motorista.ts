@@ -1,5 +1,13 @@
 import { api } from '@/lib/api';
-import type { Evento, RotaDetalhe, RotaResumo, TipoEvento, Viagem, ViagemHistorico } from '@/types';
+import type {
+  Evento,
+  PerfilMotorista,
+  RotaDetalhe,
+  RotaResumo,
+  TipoEvento,
+  Viagem,
+  ViagemHistorico,
+} from '@/types';
 
 // Chamadas da área do motorista. As telas usam estas funções (nunca URLs diretas).
 
@@ -7,6 +15,7 @@ export const chavesMotorista = {
   rotas: ['motorista', 'rotas'] as const,
   rota: (rotaId: string) => ['motorista', 'rota', rotaId] as const,
   historico: ['motorista', 'historico'] as const,
+  perfil: ['motorista', 'perfil'] as const,
 };
 
 export const listarRotas = () => api<RotaResumo[]>('/v1/motorista/rotas');
@@ -38,3 +47,5 @@ export const enviarPosicao = (
   });
 
 export const listarHistorico = () => api<ViagemHistorico[]>('/v1/motorista/viagens?limit=30');
+
+export const obterPerfil = () => api<PerfilMotorista>('/v1/motorista/perfil');

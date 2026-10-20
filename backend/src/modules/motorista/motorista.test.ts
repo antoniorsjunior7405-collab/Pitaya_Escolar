@@ -233,6 +233,27 @@ test('perfil: motorista novo vê o perfil vazio, atualiza e passa a ver os dados
   await app.close();
 });
 
+test('perfil: aprovadoEm é null até a plataforma aprovar, e o PUT não o altera', async () => {
+  const { app, fake, auth, motorista } = await cenarioCadastro();
+  const h = auth(motorista);
+  const url = '/v1/motorista/perfil';
+
+  assert.equal((await app.inject({ method: 'GET', url, headers: h })).json().aprovadoEm, null);
+  // Tentar se aprovar pelo perfil não passa da validação.
+  const put = await app.inject({
+    method: 'PUT',
+    url,
+    headers: h,
+    payload: { ...perfilValido, aprovadoEm: new Date().toISOString() },
+  });
+  assert.equal(put.statusCode, 400);
+
+  fake.aprovar(motorista);
+  const aprovado = await app.inject({ method: 'GET', url, headers: h });
+  assert.equal(typeof aprovado.json().aprovadoEm, 'string');
+  await app.close();
+});
+
 test('perfil: campo desconhecido, campo faltando ou nome curto → 400', async () => {
   const { app, auth, motorista } = await cenarioCadastro();
   const enviar = (payload: object) =>
