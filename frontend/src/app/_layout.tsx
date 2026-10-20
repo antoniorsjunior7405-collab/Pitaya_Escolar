@@ -34,9 +34,6 @@ function Navegador() {
         <Stack.Screen name="esqueci-senha" options={{ title: 'Esqueci a senha' }} />
       </Stack.Protected>
 
-      {/* Aberta pelo link do e-mail: precisa funcionar logado ou não. */}
-      <Stack.Screen name="redefinir-senha" options={{ title: 'Nova senha' }} />
-
       <Stack.Protected guard={autenticado}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Protected guard={papel === 'MOTORISTA'}>
@@ -49,6 +46,11 @@ function Navegador() {
           <Stack.Screen name="admin" options={{ headerShown: false }} />
         </Stack.Protected>
       </Stack.Protected>
+
+      {/* Aberta pelo link do e-mail: precisa funcionar logado ou não. Fica por ÚLTIMO: ao
+          trocar a sessão (login/sair), o router vai para a primeira tela disponível, e ela
+          não pode ser esta (sem token, mostraria "Link incompleto"). */}
+      <Stack.Screen name="redefinir-senha" options={{ title: 'Nova senha' }} />
     </Stack>
   );
 }

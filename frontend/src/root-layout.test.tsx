@@ -7,9 +7,15 @@ import type { PropsWithChildren } from 'react';
 import RootLayout from '@/app/_layout';
 import { useSession } from '@/context/session';
 
+// Protected respeita o guard e cada Screen vira um texto com o nome: assim dá para ver a ORDEM
+// das telas disponíveis, que é o que o router usa ao trocar a sessão.
 jest.mock('expo-router', () => {
+  const { Text } = jest.requireActual<typeof import('react-native')>('react-native');
   const Passa = ({ children }: PropsWithChildren) => children ?? null;
-  const Stack = Object.assign(Passa, { Protected: Passa, Screen: () => null });
+  const Protected = ({ guard, children }: PropsWithChildren<{ guard: boolean }>) =>
+    guard ? children : null;
+  const Screen = ({ name }: { name: string }) => <Text testID="tela">{name}</Text>;
+  const Stack = Object.assign(Passa, { Protected, Screen });
   return {
     Stack,
     SplashScreen: { preventAutoHideAsync: jest.fn(() => Promise.resolve()), hide: jest.fn() },
@@ -28,9 +34,14 @@ jest.mock('@/components/servidor-indisponivel', () => {
 const useSessionMock = jest.mocked(useSession);
 const hideMock = jest.mocked(SplashScreen.hide);
 
-function sessao(status: ReturnType<typeof useSession>['status']) {
-  useSessionMock.mockReturnValue({ status, papel: null } as ReturnType<typeof useSession>);
+function sessao(
+  status: ReturnType<typeof useSession>['status'],
+  papel: ReturnType<typeof useSession>['papel'] = null,
+) {
+  useSessionMock.mockReturnValue({ status, papel } as ReturnType<typeof useSession>);
 }
+
+const primeiraTela = () => screen.getAllByTestId('tela')[0]?.props.children;
 
 beforeEach(() => jest.clearAllMocks());
 
@@ -60,4 +71,18 @@ test('servidor indisponível também esconde a splash e mostra a tela de indispo
   await render(<RootLayout />);
   expect(hideMock).toHaveBeenCalledTimes(1);
   expect(screen.getByText('Servidor indisponível')).toBeTruthy();
+});
+
+// Ao entrar ou sair, o router vai para a primeira tela disponível. Se "redefinir-senha" (sempre
+// disponível) viesse antes, quem acabou de entrar caía em "Link incompleto".
+test('depois do login a primeira tela disponível é a inicial, não a de nova senha', async () => {
+  sessao('autenticado', 'RESPONSAVEL');
+  await render(<RootLayout />);
+  expect(primeiraTela()).toBe('index');
+});
+
+test('sem sessão a primeira tela disponível é o login', async () => {
+  sessao('anonimo');
+  await render(<RootLayout />);
+  expect(primeiraTela()).toBe('login');
 });
