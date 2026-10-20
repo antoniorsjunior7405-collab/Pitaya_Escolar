@@ -15,6 +15,11 @@ test('StatusBadge limita o crescimento da fonte como os demais textos (fonte gra
   expect(screen.getByText('Entregue').props.maxFontSizeMultiplier).toBe(2);
 });
 
+test('StatusBadge mostra a situação da conta do motorista em texto', async () => {
+  await render(<StatusBadge status="EM_ANALISE" />);
+  expect(screen.getByLabelText('Status: Aguardando aprovação')).toBeTruthy();
+});
+
 test('PrimaryButton desabilitado não dispara a ação e anuncia o estado', async () => {
   const onPress = jest.fn();
   await render(<PrimaryButton titulo="Entrar" onPress={onPress} desabilitado />);

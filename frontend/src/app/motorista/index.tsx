@@ -12,7 +12,7 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { Spacing } from '@/constants/theme';
 import { useSession } from '@/context/session';
 import { useResponsive } from '@/hooks/use-responsive';
-import { chavesMotorista, listarRotas } from '@/services/motorista';
+import { chavesMotorista, listarRotas, obterPerfil } from '@/services/motorista';
 import type { Periodo } from '@/types';
 
 const PERIODO: Record<Periodo, string> = { MANHA: 'Manhã', TARDE: 'Tarde', NOITE: 'Noite' };
@@ -22,6 +22,9 @@ export default function MinhasRotas() {
   const router = useRouter();
   const { sair } = useSession();
   const rotas = useQuery({ queryKey: chavesMotorista.rotas, queryFn: listarRotas });
+  // Falha ao ler o perfil não bloqueia as rotas: o aviso só aparece quando a resposta chega.
+  const perfil = useQuery({ queryKey: chavesMotorista.perfil, queryFn: obterPerfil });
+  const aguardandoAprovacao = perfil.data !== undefined && perfil.data.aprovadoEm === null;
 
   if (rotas.isPending) return <EstadoCarregando mensagem="Carregando suas rotas…" />;
   if (rotas.isError)
@@ -34,7 +37,22 @@ export default function MinhasRotas() {
         keyExtractor={(rota) => rota.id}
         contentContainerStyle={[styles.lista, responsivo.conteudo]}
         refreshing={rotas.isRefetching}
-        onRefresh={() => void rotas.refetch()}
+        onRefresh={() => {
+          void rotas.refetch();
+          void perfil.refetch();
+        }}
+        ListHeaderComponent={
+          aguardandoAprovacao ? (
+            <Card
+              accessibilityLabel="Conta aguardando aprovação. Ver detalhes"
+              onPress={() => router.push('/motorista/aprovacao')}>
+              <ThemedText type="smallBold">Conta aguardando aprovação</ThemedText>
+              <ThemedText type="small" themeColor="textSecondary">
+                As famílias ainda não encontram você na busca. Toque para ver os detalhes.
+              </ThemedText>
+            </Card>
+          ) : null
+        }
         ListEmptyComponent={
           <EstadoVazio
             titulo="Nenhuma rota ainda"

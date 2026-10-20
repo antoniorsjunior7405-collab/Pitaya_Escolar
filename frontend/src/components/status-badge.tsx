@@ -2,9 +2,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { StatusAluno, StatusViagem } from '@/types';
+import type { SituacaoConta, StatusAluno, StatusViagem } from '@/types';
 
-type Status = StatusViagem | StatusAluno;
+type Status = StatusViagem | StatusAluno | SituacaoConta;
 type Tom = 'Neutro' | 'Marca' | 'Sucesso' | 'Atencao';
 
 // Um único lugar define rótulo e tom de cada status. As cores vêm do tema (claro/escuro).
@@ -16,6 +16,8 @@ const STATUS: Record<Status, { rotulo: string; tom: Tom }> = {
   AGUARDANDO: { rotulo: 'Aguardando', tom: 'Neutro' },
   EMBARCADO: { rotulo: 'Embarcado', tom: 'Atencao' },
   ENTREGUE: { rotulo: 'Entregue', tom: 'Sucesso' },
+  EM_ANALISE: { rotulo: 'Aguardando aprovação', tom: 'Neutro' },
+  APROVADO: { rotulo: 'Aprovado', tom: 'Sucesso' },
 };
 
 export function StatusBadge({ status }: { status: Status }) {

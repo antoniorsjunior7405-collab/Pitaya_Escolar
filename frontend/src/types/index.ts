@@ -117,3 +117,21 @@ export type PedidoRecebido = {
   alunoPrimeiroNome: string;
   responsavelPrimeiroNome: string;
 };
+
+// ── Perfil do motorista (backend/src/modules/motorista/motorista.schemas.ts) ──
+
+/** Situação da conta do motorista na plataforma, derivada de `aprovadoEm`. */
+export type SituacaoConta = 'EM_ANALISE' | 'APROVADO';
+
+export type VeiculoDoMotorista = Veiculo & { id: string; capacidade: number | null };
+
+export type PerfilMotorista = {
+  nome: string;
+  email: string;
+  telefone: string | null;
+  apresentacao: string | null;
+  regiaoAtendimento: string | null;
+  /** null = aguardando aprovação: o motorista ainda não aparece na busca das famílias. */
+  aprovadoEm: string | null;
+  veiculos: VeiculoDoMotorista[];
+};
