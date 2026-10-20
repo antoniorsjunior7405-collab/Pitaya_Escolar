@@ -3,10 +3,12 @@ import { StyleSheet, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { Posicao } from '@/types';
+import type { Coordenada } from '@/types';
+
+type Props = { posicao: Coordenada; titulo: string };
 
 // react-native-maps não roda na web: mostramos as coordenadas em texto.
-export function MapaVeiculo({ posicao, titulo }: { posicao: Posicao; titulo: string }) {
+export function MapaVeiculo({ posicao, titulo }: Props) {
   const theme = useTheme();
   return (
     <View style={[styles.container, { borderColor: theme.border }]}>

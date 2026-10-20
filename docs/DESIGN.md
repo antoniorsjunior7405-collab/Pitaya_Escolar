@@ -101,6 +101,7 @@ Fonte do sistema (San Francisco no iOS, Roboto no Android). Escala em `component
 | `Marca` | `marca.tsx` | "Pitaya" (magenta) + "Escolar" (verde) e o selo da fruta |
 | `SeloPitaya` | `selo-pitaya.tsx` | Desenho da fruta, proporcional a `tamanho`. Usado pela `Marca` e pela animação `CaminhoAtePitaya` |
 | `MapaVeiculo` | `mapa-veiculo.tsx` (+ `.web.tsx`) | Mapa com o veículo; na web mostra coordenadas em texto |
+| `MapaSemPosicao` | `mapa-sem-posicao.tsx` | Espaço tracejado no lugar do `MapaVeiculo` enquanto não há posição; `mensagem` diz por quê |
 | `ServidorIndisponivel` | `servidor-indisponivel.tsx` | Sem rede/servidor dormindo, sem deslogar a pessoa |
 
 Cabeçalhos de navegação usam `useStackOptions()` (fundo `background`, título `text`, botão voltar `primary`, sem sombra).

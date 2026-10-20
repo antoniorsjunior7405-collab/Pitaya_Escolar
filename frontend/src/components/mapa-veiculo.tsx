@@ -3,9 +3,9 @@ import MapView, { Marker } from 'react-native-maps';
 
 import { Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import type { Posicao } from '@/types';
+import type { Coordenada } from '@/types';
 
-type Props = { posicao: Posicao; titulo: string };
+type Props = { posicao: Coordenada; titulo: string };
 
 // Mapa com a posição do veículo. No Expo Go funciona sem configuração; para builds de loja
 // no Android é preciso uma chave do Google Maps (config plugin "react-native-maps").

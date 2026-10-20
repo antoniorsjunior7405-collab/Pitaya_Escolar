@@ -139,7 +139,7 @@ Regras:
   - primeiro *foreground*, depois *background*; no Android 11+ a permissão em segundo plano abre as configurações — mostre uma tela explicativa antes;
   - Google Play exige **revisão** para localização em segundo plano e serviço em primeiro plano; planeje a aprovação cedo;
   - não funciona no Expo Go → *development build*.
-- **Mapas:** o projeto usa `react-native-maps` (`components/mapa-veiculo.tsx`, com versão web em texto). Funciona no Expo Go; **para build Android de loja é obrigatório configurar a chave do Google Maps** no plugin `react-native-maps` do `app.json` (chave restrita por pacote + SHA-1, fora do código-fonte quando possível).
+- **Mapas:** o projeto usa `react-native-maps` (`components/mapa-veiculo.tsx`, com versão web em texto). O mapa do motorista (tela da rota) usa a posição que o `useRastreamentoViagem` já lê; **não abra uma segunda assinatura de GPS** para o mapa. Funciona no Expo Go; **para build Android de loja é obrigatório configurar a chave do Google Maps** no plugin `react-native-maps` do `app.json` (chave restrita por pacote + SHA-1, fora do código-fonte quando possível).
 
 ## 10. Notificações ⏳
 

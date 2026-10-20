@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import { useEffect, useState } from 'react';
 
 import { enviarPosicao } from '@/services/motorista';
+import type { Coordenada } from '@/types';
 
 /** Intervalo mínimo entre envios: economiza bateria, dados e respeita o rate limit da API. */
 const INTERVALO_ENVIO_MS = 10_000;
@@ -13,6 +14,12 @@ export type EstadoRastreamento =
   | 'sem-permissao' // a pessoa negou a localização
   | 'erro'; // falha ao obter ou enviar a posição (tenta de novo na próxima leitura)
 
+export type Rastreamento = {
+  estado: EstadoRastreamento;
+  /** Última posição lida pelo GPS nesta viagem (para o mapa do motorista); null até a primeira. */
+  posicao: Coordenada | null;
+};
+
 /**
  * Envia a posição do veículo enquanto houver uma viagem em andamento (viagemId != null).
  *
@@ -21,8 +28,11 @@ export type EstadoRastreamento =
  * segundo plano exige development build + permissão "sempre" + aprovação da Google Play
  * (ver docs/BOAS_PRATICAS.md, seção Localização).
  */
-export function useRastreamentoViagem(viagemId: string | null): EstadoRastreamento {
+export function useRastreamentoViagem(viagemId: string | null): Rastreamento {
   const [estado, setEstado] = useState<EstadoRastreamento>('aguardando-gps');
+  // Guardamos a viagem junto da posição: ao iniciar outra viagem, a posição da anterior
+  // deixa de valer sem precisar limpar o estado dentro do efeito.
+  const [leitura, setLeitura] = useState<{ viagemId: string; posicao: Coordenada } | null>(null);
 
   useEffect(() => {
     if (!viagemId) return;
@@ -48,6 +58,12 @@ export function useRastreamentoViagem(viagemId: string | null): EstadoRastreamen
           distanceInterval: 20,
         },
         ({ coords }) => {
+          if (!ativo) return;
+          // O mapa local acompanha toda leitura; o envio ao servidor continua limitado.
+          setLeitura({
+            viagemId: id,
+            posicao: { latitude: coords.latitude, longitude: coords.longitude },
+          });
           const agora = Date.now();
           if (agora - ultimoEnvio < INTERVALO_ENVIO_MS) return;
           ultimoEnvio = agora;
@@ -74,5 +90,6 @@ export function useRastreamentoViagem(viagemId: string | null): EstadoRastreamen
     };
   }, [viagemId]);
 
-  return viagemId ? estado : 'inativo';
+  if (!viagemId) return { estado: 'inativo', posicao: null };
+  return { estado, posicao: leitura?.viagemId === viagemId ? leitura.posicao : null };
 }
