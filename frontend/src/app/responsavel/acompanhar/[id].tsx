@@ -3,15 +3,15 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { MapaSemPosicao } from '@/components/mapa-sem-posicao';
 import { MapaVeiculo } from '@/components/mapa-veiculo';
 import { StatusBadge } from '@/components/status-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
 import { EstadoCarregando } from '@/components/ui/estado-carregando';
 import { EstadoErro } from '@/components/ui/estado-erro';
-import { Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
-import { useTheme } from '@/hooks/use-theme';
 import { tempoDesde } from '@/lib/formatar';
 import { acompanharFilho, chavesResponsavel } from '@/services/responsavel';
 
@@ -21,7 +21,6 @@ const ATUALIZACAO_EM_VIAGEM_MS = 10_000;
 export default function AcompanharFilho() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const responsivo = useResponsive();
-  const theme = useTheme();
   const filho = useQuery({
     queryKey: chavesResponsavel.filho(id),
     queryFn: () => acompanharFilho(id),
@@ -64,13 +63,13 @@ export default function AcompanharFilho() {
             </ThemedText>
           </View>
         ) : (
-          <View style={[styles.semMapa, { borderColor: theme.border }]}>
-            <ThemedText themeColor="textSecondary" style={styles.centro}>
-              {emViagem
+          <MapaSemPosicao
+            mensagem={
+              emViagem
                 ? 'Aguardando a primeira localização do veículo…'
-                : 'A localização do veículo aparece aqui durante a viagem.'}
-            </ThemedText>
-          </View>
+                : 'A localização do veículo aparece aqui durante a viagem.'
+            }
+          />
         )}
 
         <Card>
@@ -107,14 +106,4 @@ const styles = StyleSheet.create({
   conteudo: { paddingVertical: Spacing.three, gap: Spacing.three },
   valor: { fontSize: 16 },
   mapaBloco: { gap: Spacing.two },
-  semMapa: {
-    minHeight: 140,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: Spacing.three,
-  },
-  centro: { textAlign: 'center' },
 });

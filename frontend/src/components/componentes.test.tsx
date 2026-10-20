@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 
+import { MapaSemPosicao } from '@/components/mapa-sem-posicao';
 import { StatusBadge } from '@/components/status-badge';
 import { PrimaryButton } from '@/components/ui/primary-button';
 import { Seletor } from '@/components/ui/seletor';
@@ -66,4 +67,11 @@ test('Seletor sem opções mostra a orientação de vazio', async () => {
     />,
   );
   expect(screen.getByText('Nenhum motorista ainda.')).toBeTruthy();
+});
+
+test('MapaSemPosicao explica em texto por que o mapa ainda não aparece', async () => {
+  await render(
+    <MapaSemPosicao mensagem="O mapa aparece assim que sua localização for encontrada." />,
+  );
+  expect(screen.getByText('O mapa aparece assim que sua localização for encontrada.')).toBeTruthy();
 });

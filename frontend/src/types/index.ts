@@ -55,9 +55,9 @@ export type ViagemHistorico = {
   alunosAtendidos: number;
 };
 
-export type Posicao = {
-  latitude: number;
-  longitude: number;
+export type Coordenada = { latitude: number; longitude: number };
+
+export type Posicao = Coordenada & {
   velocidade: number | null;
   atualizadaEm: string;
 };

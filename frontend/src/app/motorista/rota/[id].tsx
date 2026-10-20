@@ -4,6 +4,8 @@ import { Alert, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvisoRastreamento } from '@/components/aviso-rastreamento';
+import { MapaSemPosicao } from '@/components/mapa-sem-posicao';
+import { MapaVeiculo } from '@/components/mapa-veiculo';
 import { StatusBadge } from '@/components/status-badge';
 import { ThemedText } from '@/components/themed-text';
 import { Card } from '@/components/ui/card';
@@ -117,8 +119,19 @@ export default function DetalheDaRota() {
                   onPress={() => confirmarFinalizacao(viagem.id)}
                 />
               )}
-              <AvisoRastreamento estado={rastreamento} />
+              <AvisoRastreamento estado={rastreamento.estado} />
             </Card>
+            {/* A posição vem do GPS do aparelho: o mapa aparece mesmo se o envio ao servidor
+                falhar. O motivo de ainda não haver posição já está no AvisoRastreamento. */}
+            {emAndamento &&
+              (rastreamento.posicao ? (
+                <MapaVeiculo
+                  posicao={rastreamento.posicao}
+                  titulo={`${data.veiculo.modelo} (${data.veiculo.placa})`}
+                />
+              ) : (
+                <MapaSemPosicao mensagem="O mapa aparece assim que sua localização for encontrada." />
+              ))}
             <ThemedText type="subtitle" style={styles.secao}>
               Alunos
             </ThemedText>
