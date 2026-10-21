@@ -8,12 +8,16 @@ import type { Coordenada } from '@/types';
 type Props = { posicao: Coordenada; titulo: string };
 
 // No Android o react-native-maps usa o Google Maps, que sem chave própria (caso do Expo Go)
-// fica cinza, só com o logo. Por isso desenhamos os blocos do OpenStreetMap, que não pedem
-// chave. A política de uso do OSM exige o crédito visível e não aceita uso pesado: para
-// volume de produção, trocar por um provedor contratado ou pela chave do Google.
+// fica cinza, só com o logo. Por isso desenhamos blocos de outro provedor, sem chave.
+// Não dá para usar os servidores do OpenStreetMap: eles bloqueiam (403) o User-Agent
+// genérico "Dalvik" que o react-native-maps envia, e a biblioteca não deixa trocá-lo.
+// Os blocos do Esri servem para desenvolvimento e teste; para produção os termos do Esri
+// pedem conta ArcGIS: trocar por um provedor contratado ou pela chave do Google.
 // No iOS o padrão é o Apple Maps, que funciona sem chave.
-const USAR_OSM = Platform.OS === 'android';
-const OSM_TILES = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const USAR_BLOCOS = Platform.OS === 'android';
+// Atenção: o Esri usa a ordem {z}/{y}/{x}.
+const BLOCOS_URL =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}';
 
 export function MapaVeiculo({ posicao, titulo }: Props) {
   const theme = useTheme();
@@ -28,14 +32,14 @@ export function MapaVeiculo({ posicao, titulo }: Props) {
         style={styles.mapa}
         // A região acompanha cada nova posição recebida.
         region={{ ...coordenada, latitudeDelta: 0.012, longitudeDelta: 0.012 }}
-        mapType={USAR_OSM ? 'none' : 'standard'}
-        maxZoomLevel={USAR_OSM ? 19 : undefined}
+        mapType={USAR_BLOCOS ? 'none' : 'standard'}
+        maxZoomLevel={USAR_BLOCOS ? 19 : undefined}
         showsCompass={false}
         toolbarEnabled={false}>
-        {USAR_OSM && <UrlTile urlTemplate={OSM_TILES} maximumZ={19} shouldReplaceMapContent />}
+        {USAR_BLOCOS && <UrlTile urlTemplate={BLOCOS_URL} maximumZ={19} shouldReplaceMapContent />}
         <Marker coordinate={coordenada} title={titulo} pinColor={theme.primary} />
       </MapView>
-      {USAR_OSM && <Text style={styles.credito}>© OpenStreetMap</Text>}
+      {USAR_BLOCOS && <Text style={styles.credito}>© Esri, © OpenStreetMap</Text>}
     </View>
   );
 }
