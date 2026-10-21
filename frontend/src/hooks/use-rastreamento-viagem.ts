@@ -59,6 +59,8 @@ export function useRastreamentoViagem(viagemId: string | null): Rastreamento {
         },
         ({ coords }) => {
           if (!ativo) return;
+          // Leitura sem coordenada válida (NaN vira null no JSON e a API recusaria): ignoramos.
+          if (!Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) return;
           // O mapa local acompanha toda leitura; o envio ao servidor continua limitado.
           setLeitura({
             viagemId: id,
@@ -71,7 +73,10 @@ export function useRastreamentoViagem(viagemId: string | null): Rastreamento {
             latitude: coords.latitude,
             longitude: coords.longitude,
             // O GPS informa velocidade negativa/nula quando não sabe.
-            velocidade: coords.speed !== null && coords.speed >= 0 ? coords.speed : null,
+            velocidade:
+              coords.speed !== null && Number.isFinite(coords.speed) && coords.speed >= 0
+                ? coords.speed
+                : null,
           })
             .then(() => ativo && setEstado('ativo'))
             .catch(() => ativo && setEstado('erro'));

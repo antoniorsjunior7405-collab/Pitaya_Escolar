@@ -20,7 +20,10 @@ export function criarFakeMotoristaRepository() {
   const rotas: RotaFake[] = [];
   const viagens: ViagemFake[] = [];
   const eventos: (EventoRow & { viagemId: string })[] = [];
-  const posicoes = new Map<string, { latitude: number; longitude: number }>();
+  const posicoes = new Map<
+    string,
+    { latitude: number; longitude: number; velocidade: number | null }
+  >();
   const perfis = new Map<string, PerfilRow>();
   const veiculos: VeiculoFake[] = [];
 
