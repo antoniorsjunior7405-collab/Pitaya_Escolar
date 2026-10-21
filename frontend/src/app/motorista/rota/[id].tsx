@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Alert, FlatList, StyleSheet } from 'react-native';
+import { FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvisoRastreamento } from '@/components/aviso-rastreamento';
@@ -16,6 +16,7 @@ import { PrimaryButton } from '@/components/ui/primary-button';
 import { Spacing } from '@/constants/theme';
 import { useRastreamentoViagem } from '@/hooks/use-rastreamento-viagem';
 import { useResponsive } from '@/hooks/use-responsive';
+import { avisar, confirmar } from '@/lib/dialogo';
 import { mensagemDeErro } from '@/lib/http';
 import {
   chavesMotorista,
@@ -39,8 +40,7 @@ export default function DetalheDaRota() {
   const rastreamento = useRastreamentoViagem(emAndamento ? viagem.id : null);
 
   const atualizar = () => queryClient.invalidateQueries({ queryKey: chavesMotorista.rota(id) });
-  const avisarErro = (erro: unknown) =>
-    Alert.alert('Não foi possível concluir', mensagemDeErro(erro));
+  const avisarErro = (erro: unknown) => avisar('Não foi possível concluir', mensagemDeErro(erro));
 
   const iniciar = useMutation({
     mutationFn: () => iniciarViagem(id),
@@ -63,13 +63,11 @@ export default function DetalheDaRota() {
   });
 
   function confirmarFinalizacao(viagemId: string) {
-    Alert.alert(
+    confirmar(
       'Finalizar viagem?',
       'Depois de finalizada, não é possível registrar mais embarques.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Finalizar', style: 'destructive', onPress: () => finalizar.mutate(viagemId) },
-      ],
+      'Finalizar',
+      () => finalizar.mutate(viagemId),
     );
   }
 
