@@ -21,6 +21,9 @@ const app = await buildApp({
   adminRepository: createAdminRepository(db),
   vinculosRepository: createVinculosRepository(db),
 });
+// Conexão ociosa derrubada pelo banco (ex.: Neon suspendendo o compute): o pool se
+// recupera sozinho, então só registramos.
+pool.on('error', (err) => app.log.warn({ err }, 'conexão ociosa com o banco caiu'));
 if (!config.EMAIL_RESEND_API_KEY && config.NODE_ENV === 'production') {
   app.log.warn(
     'EMAIL_RESEND_API_KEY ausente: os e-mails de recuperação de senha não serão enviados',
