@@ -1,6 +1,4 @@
-/* global jest */
-// Reanimated 4 roda sobre o react-native-worklets, que é nativo: no Jest usamos o mock
-// oficial dele e o `setUpTests` do Reanimated (timers de animação e matchers).
-jest.mock('react-native-worklets', () => require('react-native-worklets/src/mock'));
-
+// Reanimated 4.7 (SDK 58): o resolver do package.json (`react-native-reanimated/jest/resolver`)
+// faz o Jest usar a versão web do Reanimated e do Worklets, que são nativos. Aqui só ligamos
+// o `setUpTests` do Reanimated (timers de animação e matchers).
 require('react-native-reanimated').setUpTests();

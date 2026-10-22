@@ -150,7 +150,7 @@ export default function DetalheDaRota() {
             <ThemedText type="small" themeColor="textSecondary">
               Inicie a viagem para marcar embarque, entrega e falta.
             </ThemedText>
-          ) : null
+          ) : undefined
         }
         renderItem={({ item }) => {
           const doAluno = evento.isPending && evento.variables?.alunoId === item.id;

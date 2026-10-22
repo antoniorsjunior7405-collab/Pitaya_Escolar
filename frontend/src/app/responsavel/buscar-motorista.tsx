@@ -144,7 +144,7 @@ export default function BuscarMotorista() {
             />
           )}
           ListFooterComponent={
-            busca.isFetchingNextPage ? <EstadoCarregando mensagem="Carregando mais…" /> : null
+            busca.isFetchingNextPage ? <EstadoCarregando mensagem="Carregando mais…" /> : undefined
           }
         />
       </KeyboardAvoidingView>
