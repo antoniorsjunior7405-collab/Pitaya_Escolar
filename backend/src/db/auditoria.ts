@@ -9,13 +9,15 @@ export type AcaoAuditada =
   | 'SOLICITACAO_CRIADA'
   | 'SOLICITACAO_CANCELADA'
   | 'SOLICITACAO_ACEITA'
-  | 'SOLICITACAO_RECUSADA';
+  | 'SOLICITACAO_RECUSADA'
+  | 'MOTORISTA_APROVADO'
+  | 'MOTORISTA_APROVACAO_REVOGADA';
 
 export type RegistroAuditoria = {
   usuarioId: string;
   organizacaoId: string | null;
   acao: AcaoAuditada;
-  entidade: 'aluno' | 'solicitacao';
+  entidade: 'aluno' | 'solicitacao' | 'motorista';
   entidadeId: string;
 };
 

@@ -15,7 +15,8 @@ import { chavesMotorista, obterPerfil } from '@/services/motorista';
 
 // Situação da conta na plataforma. Enquanto a aprovação não sai, o motorista continua fazendo
 // as rotas da escola, mas as famílias não o encontram na busca nem conseguem pedir transporte.
-// A aprovação é feita pela equipe depois de conferir os documentos (CTB art. 138).
+// A aprovação é feita pelo admin da organização (área admin > Pessoas) ou pela equipe da
+// plataforma, depois de conferir os documentos (CTB art. 138).
 export default function Aprovacao() {
   const responsivo = useResponsive();
   const router = useRouter();

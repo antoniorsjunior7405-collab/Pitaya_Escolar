@@ -10,6 +10,8 @@ export type Membro = {
   email: string;
   telefone: string | null;
   papel: Papel;
+  /** Só motorista: null = aguardando aprovação (não aparece na busca das famílias). */
+  aprovadoEm: string | null;
 };
 
 export type VeiculoAdmin = { id: string; placa: string; modelo: string; capacidade: number | null };
