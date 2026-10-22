@@ -153,6 +153,15 @@ test('posição: aceita durante a viagem, valida coordenadas e recusa após fina
   );
   assert.deepEqual(fake.posicoes.get(viagemId)?.latitude, -23.55);
   assert.equal((await enviar({ latitude: 123, longitude: 0 })).statusCode, 400);
+  assert.equal((await enviar({ latitude: '-23.55', longitude: -46.63 })).statusCode, 400);
+
+  // Velocidade impossível (ruído do GPS) não descarta a posição: vira desconhecida.
+  assert.equal(
+    (await enviar({ latitude: -23.56, longitude: -46.64, velocidade: 250 })).statusCode,
+    204,
+  );
+  assert.equal(fake.posicoes.get(viagemId)?.velocidade, null);
+  assert.equal(fake.posicoes.get(viagemId)?.latitude, -23.56);
 
   await app.inject({
     method: 'POST',

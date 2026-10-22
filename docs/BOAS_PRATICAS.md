@@ -139,7 +139,10 @@ Regras:
   - primeiro *foreground*, depois *background*; no Android 11+ a permissão em segundo plano abre as configurações — mostre uma tela explicativa antes;
   - Google Play exige **revisão** para localização em segundo plano e serviço em primeiro plano; planeje a aprovação cedo;
   - não funciona no Expo Go → *development build*.
-- **Mapas:** o projeto usa `react-native-maps` (`components/mapa-veiculo.tsx`, com versão web em texto). O mapa do motorista (tela da rota) usa a posição que o `useRastreamentoViagem` já lê; **não abra uma segunda assinatura de GPS** para o mapa. Funciona no Expo Go; **para build Android de loja é obrigatório configurar a chave do Google Maps** no plugin `react-native-maps` do `app.json` (chave restrita por pacote + SHA-1, fora do código-fonte quando possível).
+- **Mapas:** `components/mapa-veiculo.tsx` desenha o mapa numa WebView (`react-native-webview`) com **MapLibre GL JS** e os mapas do **OpenFreeMap** (grátis, sem chave, uso comercial liberado); a página fica em `lib/mapa-html.ts` e a versão web mostra as coordenadas em texto. O mapa do motorista (tela da rota) usa a posição que o `useRastreamentoViagem` já lê; **não abra uma segunda assinatura de GPS** para o mapa. Novas posições são injetadas na página (`injectJavaScript`), sem recarregá-la.
+  - **Não use `react-native-maps`:** no Android ele sempre sobe o SDK do Google, que exige chave (conta de faturamento paga) e **fecha o app** num build sem ela.
+  - O MapLibre vem da CDN com versão fixa e hash SRI. Fica na 5.x (a 6.x carrega o worker de outro arquivo, o que não funciona na WebView). Ao trocar a versão, recalcule os hashes.
+  - Só interpole na página números e cores do tema (`JSON.stringify`), nunca texto vindo do servidor. A página não navega: links abrem no navegador.
 
 ## 10. Notificações ⏳
 
@@ -221,5 +224,5 @@ Stack: `jest-expo` + `@testing-library/react-native` (já configurados no `packa
 - Expo: [llms.txt](https://docs.expo.dev/llms.txt), [src directory](https://docs.expo.dev/router/reference/src-directory.md), [Protected routes](https://docs.expo.dev/router/advanced/protected.md), [Variáveis de ambiente](https://docs.expo.dev/guides/environment-variables.md), [SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore.md), [Location](https://docs.expo.dev/versions/latest/sdk/location.md), [Notifications](https://docs.expo.dev/versions/latest/sdk/notifications.md), [Unit testing](https://docs.expo.dev/develop/unit-testing.md)
 - TanStack Query: [React Native](https://tanstack.com/query/latest/docs/framework/react/react-native)
 - React Native: [Optimizing FlatList](https://reactnative.dev/docs/optimizing-flatlist-configuration)
-- react-native-maps: [Expo config](https://docs.expo.dev/versions/latest/sdk/map-view.md)
+- react-native-webview: [Expo](https://docs.expo.dev/versions/v57.0.0/sdk/webview.md); [OpenFreeMap](https://openfreemap.org/quick_start/); [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
 - [Changelog do Expo SDK 57](https://expo.dev/changelog/sdk-57)

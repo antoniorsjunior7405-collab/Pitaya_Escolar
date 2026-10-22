@@ -40,8 +40,7 @@
           "isIosBackgroundLocationEnabled": false,
           "isAndroidBackgroundLocationEnabled": false
         }
-      ],
-      "react-native-maps"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -6,6 +6,21 @@ import { depsDeTeste } from '../../test-utils/deps.js';
 
 const novoApp = () => buildApp(depsDeTeste({ authRepository: criarFakeAuthRepository().repo }));
 
+type App = Awaited<ReturnType<typeof novoApp>>;
+
+/** Guarda o objeto de cada log.warn das requisições, para conferir o que foi registrado. */
+function capturarAvisos(app: App) {
+  const logs: Record<string, unknown>[] = [];
+  app.addHook('onRequest', async (req) => {
+    const warn = req.log.warn.bind(req.log);
+    req.log.warn = (obj: Record<string, unknown>, msg?: string) => {
+      logs.push(obj);
+      warn(obj, msg);
+    };
+  });
+  return logs;
+}
+
 test('rate limit estourado responde 429 (e não 500) no formato padrão', async () => {
   const app = await novoApp();
   let ultimo = await app.inject({ method: 'GET', url: '/health' });
@@ -34,6 +49,38 @@ test('JSON malformado responde 400 sem vazar detalhes internos', async () => {
   assert.equal(res.json().code, 'BAD_REQUEST');
   assert.equal(res.body.includes('Unexpected'), false);
   assert.equal(res.body.includes('at '), false);
+  await app.close();
+});
+
+test('400 de validação registra campo e regra no log, nunca o valor enviado', async () => {
+  const app = await novoApp();
+  const logs = capturarAvisos(app);
+  const res = await app.inject({
+    method: 'POST',
+    url: '/v1/auth/login',
+    payload: { email: 'valor-secreto-nao-e-email', senha: 'qualquer-senha-1' },
+  });
+  assert.equal(res.statusCode, 400);
+  const log = logs.find((l) => l.code === 'VALIDATION_ERROR');
+  assert.ok(log, 'esperava um log de rejeição');
+  assert.equal(log.origem, 'body');
+  assert.equal(log.rota, 'POST /v1/auth/login');
+  assert.deepEqual(log.campos, [{ campo: '/email', regra: 'invalid_format' }]);
+  assert.equal(JSON.stringify(log).includes('valor-secreto'), false);
+  await app.close();
+});
+
+test('JSON malformado registra a causa (código do Fastify) no log', async () => {
+  const app = await novoApp();
+  const logs = capturarAvisos(app);
+  await app.inject({
+    method: 'POST',
+    url: '/v1/auth/login',
+    headers: { 'content-type': 'application/json' },
+    payload: '',
+  });
+  const log = logs.find((l) => l.code === 'BAD_REQUEST');
+  assert.equal(log?.causa, 'FST_ERR_CTP_EMPTY_JSON_BODY');
   await app.close();
 });
 

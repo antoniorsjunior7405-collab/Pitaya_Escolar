@@ -48,8 +48,9 @@ export const eventoBody = z.object({ alunoId: z.uuid(), tipo: tipoEvento });
 export const posicaoBody = z.object({
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
-  // m/s, como o GPS do aparelho informa. Negativo = desconhecida → descartamos.
-  velocidade: z.number().min(0).max(100).nullable().optional(),
+  // m/s, como o GPS do aparelho informa. Leitura impossível (negativa, acima de 100 m/s ou
+  // não numérica) vira "desconhecida": um ruído no GPS não pode descartar a posição inteira.
+  velocidade: z.number().min(0).max(100).nullable().optional().catch(null),
 });
 
 export const historicoQuery = z.object({

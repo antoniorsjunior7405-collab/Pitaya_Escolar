@@ -7,7 +7,7 @@ import type { Coordenada } from '@/types';
 
 type Props = { posicao: Coordenada; titulo: string };
 
-// react-native-maps não roda na web: mostramos as coordenadas em texto.
+// A WebView do mapa não existe na web: mostramos as coordenadas em texto.
 export function MapaVeiculo({ posicao, titulo }: Props) {
   const theme = useTheme();
   return (

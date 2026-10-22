@@ -46,6 +46,19 @@ function traduzir(error: FastifyError, requestId: string): { status: number; bod
   };
 }
 
+// O que vai para o log quando a requisição é rejeitada (4xx). Só nomes de campo, regra
+// violada e código interno do Fastify: nunca os valores enviados (podem ser coordenadas,
+// e-mail, senha) nem a mensagem do parser (pode citar trechos do corpo).
+function detalhesDaRejeicao(error: FastifyError) {
+  if (hasZodFastifySchemaValidationErrors(error)) {
+    return {
+      origem: error.validationContext,
+      campos: error.validation.map((v) => ({ campo: v.instancePath || '/', regra: v.keyword })),
+    };
+  }
+  return error.code ? { causa: error.code } : {};
+}
+
 // Handler central de erros. Nunca vaza stack trace nem detalhes internos ao cliente,
 // e é à prova de falhas: se algo der errado ao montar a resposta, devolve um 500 fixo.
 export function registerErrorHandler(app: FastifyInstance) {
@@ -54,7 +67,17 @@ export function registerErrorHandler(app: FastifyInstance) {
       const { status, body } = traduzir(error, request.id);
       // 5xx é problema nosso: vai para o log com o erro completo. 4xx é do cliente: só aviso.
       if (status >= 500) request.log.error({ err: error }, 'erro não tratado');
-      else request.log.warn({ code: body.code, status }, 'requisição rejeitada');
+      else {
+        request.log.warn(
+          {
+            code: body.code,
+            status,
+            rota: `${request.method} ${request.routeOptions.url ?? '?'}`,
+            ...(status === 400 && detalhesDaRejeicao(error)),
+          },
+          'requisição rejeitada',
+        );
+      }
       return reply.status(status).send(body);
     } catch (falha) {
       request.log.error({ err: falha, original: error }, 'falha no handler de erros');
