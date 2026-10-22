@@ -11,6 +11,7 @@
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.pitayaescolar.app",
       "adaptiveIcon": {
         "backgroundColor": "#FCE4EF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

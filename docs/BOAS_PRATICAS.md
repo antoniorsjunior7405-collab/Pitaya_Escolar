@@ -206,7 +206,10 @@ Stack: `jest-expo` + `@testing-library/react-native` (já configurados no `packa
 - Antes de concluir tarefa: `npm run check` em `frontend/` (e em `backend/`, se mexeu lá).
 - Fim de linha **LF** em todos os sistemas, garantido pelo `.gitattributes` da raiz (`* text=auto eol=lf`). Não remova: no Windows o `core.autocrlf=true` faria o checkout em CRLF e o Prettier reprovaria todos os arquivos.
 - O `package-lock.json` precisa passar no `npm ci`. Se o `npm ci` reclamar de pacote faltando no lock, corrija o lock no mesmo PR que mudou as dependências.
-- ⏳ Build e publicação via EAS (`eas build`, `eas submit`, `eas update`) com perfis `development`, `preview` e `production` — ainda falta criar o `eas.json` e o projeto EAS.
+- **Build via EAS** (`frontend/eas.json`): `preview` gera o APK para instalar direto no celular (`eas build -p android --profile preview`); `production` gera o `.aab` da Play Store. A URL da API de cada perfil fica em `env` (só valores `EXPO_PUBLIC_`, que são públicos; segredo vai em `eas env`, nunca no arquivo).
+  - O `versionCode` do Android é controlado pelo EAS (`appVersionSource: "remote"` + `autoIncrement` no `production`): não o coloque no `app.json`. A versão visível (`version` no `app.json`) continua sendo mudada à mão a cada lançamento.
+  - O `android.package` (`com.pitayaescolar.app`) é a identidade do app na Play Store: depois de publicado, **não muda**.
+  - ⏳ Perfil `development` (exige `expo-dev-client`) quando surgir biblioteca nativa que o Expo Go não traz; ⏳ `eas submit` e `eas update`; ⏳ `ios.bundleIdentifier` antes do primeiro build de iOS.
 
 ## 16. Checklist de PR
 
