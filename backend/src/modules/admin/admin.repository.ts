@@ -1,4 +1,5 @@
 import { and, asc, eq, isNull, or, type SQL } from 'drizzle-orm';
+import { registrarAuditoria } from '../../db/auditoria.js';
 import { ehViolacaoUnica } from '../../db/erros.js';
 import type { Db } from '../../db/index.js';
 import { schema } from '../../db/index.js';
@@ -10,11 +11,19 @@ export interface AdminRepository {
   buscarOrganizacao(
     organizacaoId: string,
   ): Promise<{ nome: string; codigoConvite: string } | undefined>;
-  listarMembros(
-    organizacaoId: string,
-    papel?: Papel,
-  ): Promise<{ id: string; nome: string; email: string; telefone: string | null; papel: Papel }[]>;
+  listarMembros(organizacaoId: string, papel?: Papel): Promise<MembroRow[]>;
   buscarMembroPorId(organizacaoId: string, usuarioId: string, papel: Papel): Promise<boolean>;
+  /**
+   * Aprova (aprovar = true) ou revoga a aprovação do motorista. Só vale para MOTORISTA ativo
+   * desta organização: undefined se não for. Aprovar quem já está aprovado mantém a data
+   * original. Na mesma transação grava a auditoria, e só quando a situação muda.
+   */
+  definirAprovacaoMotorista(input: {
+    organizacaoId: string;
+    motoristaId: string;
+    adminId: string;
+    aprovar: boolean;
+  }): Promise<{ aprovadoEm: Date | null } | undefined>;
   buscarMembroPorEmail(
     organizacaoId: string,
     email: string,
@@ -88,6 +97,16 @@ export type RotaAdminRow = {
   veiculoPlaca: string;
 };
 
+/** aprovadoEm só tem sentido para motorista; para os demais papéis vem null. */
+export type MembroRow = {
+  id: string;
+  nome: string;
+  email: string;
+  telefone: string | null;
+  papel: Papel;
+  aprovadoEm: Date | null;
+};
+
 export function createAdminRepository(db: Db): AdminRepository {
   const {
     organizacoes,
@@ -98,6 +117,7 @@ export function createAdminRepository(db: Db): AdminRepository {
     responsaveisAlunos,
     rotas,
     rotaAlunos,
+    perfisMotorista,
   } = schema;
 
   const existe = async (query: Promise<unknown[]>) => (await query).length > 0;
@@ -134,9 +154,14 @@ export function createAdminRepository(db: Db): AdminRepository {
           email: usuarios.email,
           telefone: usuarios.telefone,
           papel: membros.papel,
+          aprovadoEm: perfisMotorista.aprovadoEm,
         })
         .from(membros)
         .innerJoin(usuarios, eq(usuarios.id, membros.usuarioId))
+        .leftJoin(
+          perfisMotorista,
+          and(eq(perfisMotorista.usuarioId, membros.usuarioId), eq(membros.papel, 'MOTORISTA')),
+        )
         .where(
           and(
             eq(membros.organizacaoId, organizacaoId),
@@ -144,6 +169,51 @@ export function createAdminRepository(db: Db): AdminRepository {
           ),
         )
         .orderBy(asc(usuarios.nome));
+    },
+
+    definirAprovacaoMotorista({ organizacaoId, motoristaId, adminId, aprovar }) {
+      return db.transaction(async (tx) => {
+        const [motorista] = await tx
+          .select({ id: usuarios.id })
+          .from(membros)
+          .innerJoin(usuarios, eq(usuarios.id, membros.usuarioId))
+          .where(
+            and(
+              eq(membros.organizacaoId, organizacaoId),
+              eq(membros.usuarioId, motoristaId),
+              eq(membros.papel, 'MOTORISTA'),
+              eq(usuarios.ativo, true),
+            ),
+          )
+          .limit(1);
+        if (!motorista) return undefined;
+
+        // Trava o perfil: dois admins agindo ao mesmo tempo não duplicam a auditoria.
+        const [perfil] = await tx
+          .select({ aprovadoEm: perfisMotorista.aprovadoEm })
+          .from(perfisMotorista)
+          .where(eq(perfisMotorista.usuarioId, motoristaId))
+          .for('update');
+        const atual = perfil?.aprovadoEm ?? null;
+        const novo = aprovar ? (atual ?? new Date()) : null;
+        if ((atual === null) === (novo === null)) return { aprovadoEm: atual };
+
+        await tx
+          .insert(perfisMotorista)
+          .values({ usuarioId: motoristaId, aprovadoEm: novo })
+          .onConflictDoUpdate({
+            target: perfisMotorista.usuarioId,
+            set: { aprovadoEm: novo, atualizadoEm: new Date() },
+          });
+        await registrarAuditoria(tx, {
+          usuarioId: adminId,
+          organizacaoId,
+          acao: aprovar ? 'MOTORISTA_APROVADO' : 'MOTORISTA_APROVACAO_REVOGADA',
+          entidade: 'motorista',
+          entidadeId: motoristaId,
+        });
+        return { aprovadoEm: novo };
+      });
     },
 
     buscarMembroPorId: (organizacaoId, usuarioId, papel) =>

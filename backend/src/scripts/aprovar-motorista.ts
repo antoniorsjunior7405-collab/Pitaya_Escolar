@@ -2,7 +2,8 @@ import { parseArgs } from 'node:util';
 import { and, eq } from 'drizzle-orm';
 import { createDb, schema } from '../db/index.js';
 
-// Aprova (ou revoga) um motorista na plataforma. Só motorista aprovado aparece na busca das
+// Aprova (ou revoga) um motorista na plataforma, sem passar pela área admin (que só aprova
+// motoristas da própria organização e registra auditoria). Só motorista aprovado aparece na busca das
 // famílias e recebe pedidos de vínculo. Aprove depois de conferir os documentos do condutor
 // escolar (CTB art. 138: idade, CNH categoria D, curso especializado).
 //

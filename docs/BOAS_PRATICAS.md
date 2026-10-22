@@ -122,7 +122,8 @@ Regras:
   - responsável só vê os **próprios filhos** e a viagem em que eles estão;
   - motorista só vê/edita **suas rotas** e os alunos delas;
   - localização do veículo só para responsáveis vinculados e só com viagem `EM_ANDAMENTO`;
-  - admin tem papel próprio, nunca uma flag enviada pelo cliente.
+  - admin tem papel próprio, nunca uma flag enviada pelo cliente;
+  - admin aprova ou revoga **só motoristas da própria organização**, nunca a própria conta, e cada mudança vai para a auditoria (`registros_auditoria`). Aprovar libera o motorista na busca de todas as famílias: o admin confere os documentos do condutor escolar antes (CTB art. 138).
 - O **papel do usuário** vem da sessão (`/v1/auth/me`), nunca de uma escolha na tela. No cadastro a pessoa informa o papel, mas o servidor só aceita `MOTORISTA`/`RESPONSAVEL` com código de convite válido.
 - **LGPD:** os alunos são menores de idade. Colete o mínimo necessário, informe a finalidade, não registre dados pessoais em logs e ⏳ permita exclusão de conta/dados.
 

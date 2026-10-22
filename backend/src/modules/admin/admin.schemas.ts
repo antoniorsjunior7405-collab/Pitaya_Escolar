@@ -14,6 +14,14 @@ export const membro = z.object({
   email: z.string(),
   telefone: z.string().nullable(),
   papel,
+  // Só motorista: null = aguardando aprovação (não aparece na busca das famílias).
+  aprovadoEm: z.date().nullable(),
+});
+
+export const motoristaParams = z.object({ motoristaId: z.uuid() });
+export const aprovacaoMotorista = z.object({
+  motoristaId: z.uuid(),
+  aprovadoEm: z.date().nullable(),
 });
 
 export const veiculoBody = z.object({

@@ -140,8 +140,9 @@ export const perfisMotorista = pgTable('perfis_motorista', {
     .references(() => usuarios.id, { onDelete: 'cascade' }),
   apresentacao: text(),
   regiaoAtendimento: text('regiao_atendimento'),
-  // Aprovação pela plataforma (script aprovar:motorista). Só motorista aprovado aparece na
-  // busca das famílias: num transporte de crianças, a conta não nasce visível.
+  // Aprovação pelo admin de uma organização de que o motorista é membro (área admin, com
+  // auditoria) ou pelo script aprovar:motorista. Só motorista aprovado aparece na busca das
+  // famílias: num transporte de crianças, a conta não nasce visível.
   aprovadoEm: timestamp('aprovado_em', { withTimezone: true }),
   criadoEm: criadoEm(),
   atualizadoEm: timestamp('atualizado_em', { withTimezone: true }).notNull().defaultNow(),

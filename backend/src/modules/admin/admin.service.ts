@@ -1,5 +1,5 @@
 import type { Membro, Papel } from '../../shared/acesso/acesso.js';
-import { ConflictError, NotFoundError } from '../../shared/errors/app-error.js';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../shared/errors/app-error.js';
 import type { AdminRepository } from './admin.repository.js';
 import type { RotaAlunoInput, RotaInput, VeiculoInput, VinculoInput } from './admin.schemas.js';
 
@@ -19,6 +19,26 @@ export function criarAdminService(repo: AdminRepository) {
     },
 
     listarMembros: (m: Membro, papel?: Papel) => repo.listarMembros(m.organizacaoId, papel),
+
+    /**
+     * Libera (ou bloqueia) o motorista na busca das famílias. Aprove depois de conferir os
+     * documentos do condutor escolar (CTB art. 138: idade, CNH categoria D, curso
+     * especializado). Só motorista desta organização; ninguém aprova a própria conta.
+     */
+    async definirAprovacaoMotorista(m: Membro, motoristaId: string, aprovar: boolean) {
+      if (motoristaId === m.usuarioId) {
+        throw new ForbiddenError('Peça a outro administrador para aprovar a sua conta');
+      }
+      const resultado = await repo.definirAprovacaoMotorista({
+        organizacaoId: m.organizacaoId,
+        motoristaId,
+        adminId: m.usuarioId,
+        aprovar,
+      });
+      // 404 (e não 403) para não revelar motoristas de outras organizações.
+      if (!resultado) throw new NotFoundError('Motorista não encontrado');
+      return { motoristaId, aprovadoEm: resultado.aprovadoEm };
+    },
 
     listarVeiculos: (m: Membro) => repo.listarVeiculos(m.organizacaoId),
 

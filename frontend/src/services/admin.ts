@@ -30,6 +30,19 @@ export const buscarOrganizacao = () => api<Organizacao>('/v1/admin/organizacao')
 export const listarMembros = (papel?: Papel) =>
   api<Membro[]>(`/v1/admin/membros${papel ? `?papel=${papel}` : ''}`);
 
+type Aprovacao = { motoristaId: string; aprovadoEm: string | null };
+
+/** Libera o motorista na busca das famílias (só motorista da própria organização). */
+export const aprovarMotorista = (motoristaId: string) =>
+  api<Aprovacao>(`/v1/admin/motoristas/${encodeURIComponent(motoristaId)}/aprovacao`, {
+    method: 'PUT',
+  });
+
+export const revogarAprovacao = (motoristaId: string) =>
+  api<Aprovacao>(`/v1/admin/motoristas/${encodeURIComponent(motoristaId)}/aprovacao`, {
+    method: 'DELETE',
+  });
+
 export const listarVeiculos = () => api<VeiculoAdmin[]>('/v1/admin/veiculos');
 export const criarVeiculo = (dados: { placa: string; modelo: string; capacidade?: number }) =>
   api<VeiculoAdmin>('/v1/admin/veiculos', { method: 'POST', body: dados });

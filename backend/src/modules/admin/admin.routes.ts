@@ -7,8 +7,10 @@ import {
   alunoBody,
   alunoDetalhe,
   alunoParams,
+  aprovacaoMotorista,
   membro,
   membrosQuery,
+  motoristaParams,
   organizacaoResponse,
   rota,
   rotaAlunoBody,
@@ -37,6 +39,17 @@ export function criarAdminRoutes(service: AdminService) {
       '/membros',
       { schema: { querystring: membrosQuery, response: { 200: z.array(membro) } } },
       async (req) => service.listarMembros(membroDe(req), req.query.papel),
+    );
+
+    // Aprovação do motorista: PUT aprova, DELETE revoga. Repetir não muda nada (idempotente).
+    const aprovacao = {
+      schema: { params: motoristaParams, response: { 200: aprovacaoMotorista } },
+    };
+    r.put('/motoristas/:motoristaId/aprovacao', aprovacao, async (req) =>
+      service.definirAprovacaoMotorista(membroDe(req), req.params.motoristaId, true),
+    );
+    r.delete('/motoristas/:motoristaId/aprovacao', aprovacao, async (req) =>
+      service.definirAprovacaoMotorista(membroDe(req), req.params.motoristaId, false),
     );
 
     r.get('/veiculos', { schema: { response: { 200: z.array(veiculo) } } }, async (req) =>
