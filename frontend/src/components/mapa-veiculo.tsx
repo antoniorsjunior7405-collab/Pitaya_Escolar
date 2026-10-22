@@ -16,7 +16,7 @@ type Props = { posicao: Coordenada; titulo: string };
 export function MapaVeiculo({ posicao, titulo }: Props) {
   const theme = useTheme();
   const escuro = useColorScheme() === 'dark';
-  const webView = useRef<WebView>(null);
+  const webView = useRef<WebView<object>>(null);
   // A página nasce com a primeira posição; as seguintes são injetadas, sem recarregar o mapa.
   const [posicaoInicial] = useState(posicao);
   const [falhou, setFalhou] = useState(false);
@@ -42,7 +42,9 @@ export function MapaVeiculo({ posicao, titulo }: Props) {
       style={[styles.container, { borderColor: theme.border }]}
       accessible
       accessibilityLabel={`Mapa com a posição atual do veículo: ${titulo}`}>
-      <WebView
+      {/* react-native-webview 14 declara `WebView<P = undefined>`, e `props & undefined` vira
+          `never`: passamos o parâmetro de tipo para as props serem checadas normalmente. */}
+      <WebView<object>
         ref={webView}
         style={styles.mapa}
         originWhitelist={['*']}

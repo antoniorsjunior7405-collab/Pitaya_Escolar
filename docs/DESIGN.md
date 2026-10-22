@@ -95,13 +95,15 @@ Fonte do sistema (San Francisco no iOS, Roboto no Android). Escala em `component
 | `PrimaryButton` | `ui/primary-button.tsx` | `primario` (preenchido) ou `secundario` (contorno). Estados carregando/desabilitado anunciados |
 | `TextField` | `ui/text-field.tsx` | Rótulo visível + `accessibilityLabel`; erro em `danger` com `role="alert"` |
 | `Seletor` | `ui/seletor.tsx` | Escolha única em chips (radiogroup). Quebra linha sozinho |
-| `StatusBadge` | `status-badge.tsx` | Ponto + rótulo; nunca só cor |
+| `StatusBadge` | `status-badge.tsx` | Ponto + rótulo; nunca só cor (inclui "Faltou" para aluno ausente) |
 | `EstadoCarregando` / `EstadoErro` / `EstadoVazio` | `ui/` | **Toda tela que busca dados** trata os três estados |
 | `TelaCarregamento` | `ui/tela-carregamento.tsx` | Modelo de carregamento de **página inteira**: carro grande na estrada tracejada até a pitaya. Reaproveite com `mensagem`, `descricao` e `children` (ações). Dentro de listas/cards use `EstadoCarregando` |
 | `Marca` | `marca.tsx` | "Pitaya" (magenta) + "Escolar" (verde) e o selo da fruta |
 | `SeloPitaya` | `selo-pitaya.tsx` | Desenho da fruta, proporcional a `tamanho`. Usado pela `Marca` e pela animação `CaminhoAtePitaya` |
 | `MapaVeiculo` | `mapa-veiculo.tsx` (+ `.web.tsx`) | Mapa com o veículo (WebView + MapLibre/OpenFreeMap); na web mostra coordenadas em texto |
 | `MapaSemPosicao` | `mapa-sem-posicao.tsx` | Espaço tracejado no lugar do `MapaVeiculo` enquanto não há posição; `mensagem` diz por quê |
+| `CartaoAlunoViagem` | `cartao-aluno-viagem.tsx` | Aluno na rota do motorista: situação e botões Embarcou / Faltou / Entregue (regras de tela em `lib/viagem.ts`) |
+| `ConfirmacaoChegada` | `confirmacao-chegada.tsx` | Na tela do responsável, depois da entrega: botão para confirmar a chegada da criança |
 | `ServidorIndisponivel` | `servidor-indisponivel.tsx` | Sem rede/servidor dormindo, sem deslogar a pessoa |
 
 Cabeçalhos de navegação usam `useStackOptions()` (fundo `background`, título `text`, botão voltar `primary`, sem sombra).

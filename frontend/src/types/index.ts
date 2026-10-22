@@ -6,10 +6,13 @@ export type StatusViagem = 'PLANEJADA' | 'EM_ANDAMENTO' | 'FINALIZADA';
 
 /**
  * Situação de um aluno numa viagem. AGUARDANDO = nenhum evento registrado ainda;
- * no banco só existem eventos EMBARCADO e ENTREGUE.
+ * AUSENTE = o motorista registrou que a criança faltou.
  */
-export type StatusAluno = 'AGUARDANDO' | 'EMBARCADO' | 'ENTREGUE';
-export type TipoEvento = 'EMBARCADO' | 'ENTREGUE';
+export type StatusAluno = 'AGUARDANDO' | 'EMBARCADO' | 'ENTREGUE' | 'AUSENTE';
+/** CHEGADA_CONFIRMADA é registrado pelo responsável, depois da entrega. */
+export type TipoEvento = 'EMBARCADO' | 'ENTREGUE' | 'AUSENTE' | 'CHEGADA_CONFIRMADA';
+/** Eventos que o motorista registra. */
+export type TipoEventoDoMotorista = Exclude<TipoEvento, 'CHEGADA_CONFIRMADA'>;
 export type Periodo = 'MANHA' | 'TARDE' | 'NOITE';
 
 export type Veiculo = { placa: string; modelo: string };
@@ -39,6 +42,8 @@ export type AlunoDaRota = {
   ordem: number;
   endereco: string | null;
   status: StatusAluno;
+  /** O responsável já confirmou que a criança chegou. */
+  chegadaConfirmada: boolean;
 };
 
 export type RotaDetalhe = Omit<RotaResumo, 'totalAlunos'> & {
@@ -66,6 +71,7 @@ export type FilhoResumo = {
   id: string;
   nome: string;
   statusAluno: StatusAluno;
+  chegadaConfirmada: boolean;
   viagem: { id: string; status: StatusViagem } | null;
   rotaNome: string | null;
   motorista: { nome: string; telefone: string | null } | null;

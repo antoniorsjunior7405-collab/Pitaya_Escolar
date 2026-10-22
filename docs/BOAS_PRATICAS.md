@@ -2,10 +2,10 @@
 
 Guia a ser seguido por todo o código do app (`frontend/`). Base: documentação oficial do Expo e do React Native, ajustada à stack real do projeto:
 
-- **App:** Expo SDK 57, React Native 0.86, React 19.2, Expo Router, TypeScript estrito, React Compiler ativo, TanStack Query.
+- **App:** Expo SDK 58, React Native 0.88, React 19.3, Expo Router, TypeScript estrito, React Compiler ativo, TanStack Query.
 - **Servidor:** API própria em `backend/` (Node 24 + Fastify 5 + Drizzle + PostgreSQL), hospedada no Render. O app **não** acessa o banco direto. Regras do servidor: [`backend/BOAS_PRATICAS.md`](../backend/BOAS_PRATICAS.md).
 
-> **Regra de ouro:** o Expo muda a cada SDK. Antes de usar qualquer API de Expo/EAS/RN, confira a doc da versão em `https://docs.expo.dev/versions/v57.0.0/` (índice: `https://docs.expo.dev/llms.txt`). Nunca confie na memória.
+> **Regra de ouro:** o Expo muda a cada SDK. Antes de usar qualquer API de Expo/EAS/RN, confira a doc da versão em `https://docs.expo.dev/versions/v58.0.0/` (índice: `https://docs.expo.dev/llms.txt`). Nunca confie na memória.
 
 Legenda: ⏳ = **planejado, ainda não implementado**. A regra vale quando o recurso for construído.
 
@@ -164,7 +164,7 @@ Ainda não implementadas (`expo-notifications` não está instalado). Quando for
 - Evite trabalho pesado no render e no JS thread.
 - Sem `console.*` no código do app: o ESLint bloqueia em `src/` (`no-console`).
 - Meça antes de otimizar: React DevTools Profiler, `npx expo export --platform android` + análise de bundle.
-- Hermes e a nova arquitetura já são padrão no SDK 57 — não os desligue.
+- Hermes e a nova arquitetura já são padrão no SDK 58 — não os desligue.
 
 ## 12. Dependências
 
@@ -187,6 +187,9 @@ Ainda não implementadas (`expo-notifications` não está instalado). Quando for
 ## 14. Testes
 
 Stack: `jest-expo` + `@testing-library/react-native` (já configurados no `package.json`; `"types": ["jest"]` no `tsconfig`). Rode com `npm test`.
+
+- O Jest usa o resolver do Reanimated (`"resolver": "react-native-reanimated/jest/resolver"`), que troca o Reanimated e o Worklets (nativos) pela versão web. Não mocke o `react-native-worklets` à mão.
+- Componente com módulo nativo sem versão de teste (ex.: `react-native-webview`) é mockado no próprio teste (ver `mapa-veiculo.test.tsx`).
 
 - **Unitários:** funções puras e infra (`lib/http`, `lib/session-tokens`, `lib/formatar`), hooks e services.
 - **Componentes:** React Native Testing Library, testando o que o usuário vê (`getByText`, `getByRole`), não detalhes de implementação.
@@ -224,5 +227,5 @@ Stack: `jest-expo` + `@testing-library/react-native` (já configurados no `packa
 - Expo: [llms.txt](https://docs.expo.dev/llms.txt), [src directory](https://docs.expo.dev/router/reference/src-directory.md), [Protected routes](https://docs.expo.dev/router/advanced/protected.md), [Variáveis de ambiente](https://docs.expo.dev/guides/environment-variables.md), [SecureStore](https://docs.expo.dev/versions/latest/sdk/securestore.md), [Location](https://docs.expo.dev/versions/latest/sdk/location.md), [Notifications](https://docs.expo.dev/versions/latest/sdk/notifications.md), [Unit testing](https://docs.expo.dev/develop/unit-testing.md)
 - TanStack Query: [React Native](https://tanstack.com/query/latest/docs/framework/react/react-native)
 - React Native: [Optimizing FlatList](https://reactnative.dev/docs/optimizing-flatlist-configuration)
-- react-native-webview: [Expo](https://docs.expo.dev/versions/v57.0.0/sdk/webview.md); [OpenFreeMap](https://openfreemap.org/quick_start/); [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
-- [Changelog do Expo SDK 57](https://expo.dev/changelog/sdk-57)
+- react-native-webview: [Expo](https://docs.expo.dev/versions/v58.0.0/sdk/webview.md); [OpenFreeMap](https://openfreemap.org/quick_start/); [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
+- [Changelog do Expo SDK 58](https://expo.dev/changelog/sdk-58)

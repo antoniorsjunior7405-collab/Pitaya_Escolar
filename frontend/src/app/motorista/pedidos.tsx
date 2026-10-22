@@ -68,7 +68,7 @@ export default function PedidosRecebidos() {
             <ThemedText accessibilityRole="alert" style={{ color: theme.danger }}>
               {mensagemDeErro(responder.error)}
             </ThemedText>
-          ) : null
+          ) : undefined
         }
         ListEmptyComponent={
           <EstadoVazio

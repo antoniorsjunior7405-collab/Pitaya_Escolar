@@ -51,7 +51,7 @@ export default function MinhasRotas() {
                 As famílias ainda não encontram você na busca. Toque para ver os detalhes.
               </ThemedText>
             </Card>
-          ) : null
+          ) : undefined
         }
         ListEmptyComponent={
           <EstadoVazio

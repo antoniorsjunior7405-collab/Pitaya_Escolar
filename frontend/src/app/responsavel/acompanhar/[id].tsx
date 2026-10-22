@@ -1,8 +1,9 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ConfirmacaoChegada } from '@/components/confirmacao-chegada';
 import { MapaSemPosicao } from '@/components/mapa-sem-posicao';
 import { MapaVeiculo } from '@/components/mapa-veiculo';
 import { StatusBadge } from '@/components/status-badge';
@@ -12,8 +13,11 @@ import { EstadoCarregando } from '@/components/ui/estado-carregando';
 import { EstadoErro } from '@/components/ui/estado-erro';
 import { Spacing } from '@/constants/theme';
 import { useResponsive } from '@/hooks/use-responsive';
+import { avisar } from '@/lib/dialogo';
 import { tempoDesde } from '@/lib/formatar';
-import { acompanharFilho, chavesResponsavel } from '@/services/responsavel';
+import { mensagemDeErro } from '@/lib/http';
+import { acompanharFilho, chavesResponsavel, confirmarChegada } from '@/services/responsavel';
+import type { FilhoDetalhe } from '@/types';
 
 /** Com a viagem em andamento, a posição é atualizada a cada 10 s (o motorista envia nesse ritmo). */
 const ATUALIZACAO_EM_VIAGEM_MS = 10_000;
@@ -21,11 +25,24 @@ const ATUALIZACAO_EM_VIAGEM_MS = 10_000;
 export default function AcompanharFilho() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const responsivo = useResponsive();
+  const queryClient = useQueryClient();
   const filho = useQuery({
     queryKey: chavesResponsavel.filho(id),
     queryFn: () => acompanharFilho(id),
     refetchInterval: (query) =>
       query.state.data?.viagem?.status === 'EM_ANDAMENTO' ? ATUALIZACAO_EM_VIAGEM_MS : 60_000,
+  });
+
+  const confirmar = useMutation({
+    mutationFn: () => confirmarChegada(id),
+    // A resposta já traz a confirmação: a tela muda na hora, sem esperar a próxima atualização.
+    onSuccess: (resumo) => {
+      queryClient.setQueryData<FilhoDetalhe>(chavesResponsavel.filho(id), (atual) =>
+        atual ? { ...atual, ...resumo } : atual,
+      );
+      void queryClient.invalidateQueries({ queryKey: chavesResponsavel.filhos });
+    },
+    onError: (erro) => avisar('Não foi possível confirmar', mensagemDeErro(erro)),
   });
 
   if (filho.isPending) return <EstadoCarregando />;
@@ -54,6 +71,15 @@ export default function AcompanharFilho() {
           </ThemedText>
           <StatusBadge status={f.statusAluno} />
         </Card>
+
+        {f.statusAluno === 'ENTREGUE' ? (
+          <ConfirmacaoChegada
+            nome={f.nome}
+            confirmada={f.chegadaConfirmada}
+            carregando={confirmar.isPending}
+            onConfirmar={() => confirmar.mutate()}
+          />
+        ) : null}
 
         {emViagem && f.posicao ? (
           <View style={styles.mapaBloco}>

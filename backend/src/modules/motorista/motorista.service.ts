@@ -6,7 +6,7 @@ import {
   NotFoundError,
   RegraDeNegocioError,
 } from '../../shared/errors/app-error.js';
-import { statusDoAluno } from '../../shared/status-aluno.js';
+import { chegadaConfirmada, statusDoAluno } from '../../shared/status-aluno.js';
 import type { DadosVeiculo, Escopo, MotoristaRepository } from './motorista.repository.js';
 import type {
   PerfilInput,
@@ -14,7 +14,12 @@ import type {
   TipoEventoInput,
   VeiculoInput,
 } from './motorista.schemas.js';
-import { garantirEmAndamento, garantirOrdemDoEvento, podeFinalizar } from './regras-viagem.js';
+import {
+  garantirEmAndamento,
+  garantirOrdemDoEvento,
+  garantirTodosAtendidos,
+  podeFinalizar,
+} from './regras-viagem.js';
 
 const escopoDe = (m: Membro): Escopo => ({
   organizacaoId: m.organizacaoId,
@@ -69,7 +74,11 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
         nome: rota.nome,
         periodo: rota.periodo,
         veiculo: rota.veiculo,
-        alunos: alunos.map((a) => ({ ...a, status: statusDoAluno(eventos, a.id) })),
+        alunos: alunos.map((a) => ({
+          ...a,
+          status: statusDoAluno(eventos, a.id),
+          chegadaConfirmada: chegadaConfirmada(eventos, a.id),
+        })),
         viagemAtual,
       };
     },
@@ -95,7 +104,7 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
       return { viagem: await comEventos(atual), criada: false };
     },
 
-    /** Registra embarque/entrega. Reenviar o mesmo evento não duplica (idempotente). */
+    /** Registra embarque, entrega ou falta. Reenviar o mesmo evento não duplica (idempotente). */
     async registrarEvento(m: Membro, viagemId: string, alunoId: string, tipo: TipoEventoInput) {
       const viagem = await viagemDoMotorista(m, viagemId);
       garantirEmAndamento(viagem.status);
@@ -105,8 +114,7 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
       }
 
       const eventos = await repo.listarEventos(viagem.id);
-      const jaEmbarcou = eventos.some((e) => e.alunoId === alunoId && e.tipo === 'EMBARCADO');
-      garantirOrdemDoEvento(tipo, jaEmbarcou);
+      garantirOrdemDoEvento(tipo, statusDoAluno(eventos, alunoId));
 
       const novo = await repo.registrarEvento({
         viagemId: viagem.id,
@@ -122,6 +130,12 @@ export function criarMotoristaService(repo: MotoristaRepository, hoje = hojeNoFu
     async finalizarViagem(m: Membro, viagemId: string) {
       const viagem = await viagemDoMotorista(m, viagemId);
       if (podeFinalizar(viagem.status) === 'ja-finalizada') return comEventos(viagem);
+
+      const [alunos, eventos] = await Promise.all([
+        repo.listarAlunosDaRota(viagem.rotaId),
+        repo.listarEventos(viagem.id),
+      ]);
+      garantirTodosAtendidos(alunos.map((a) => statusDoAluno(eventos, a.id)));
 
       const finalizada = await repo.finalizarViagem(viagem.id);
       // Outro toque pode ter finalizado no meio do caminho: devolvemos o estado atual.

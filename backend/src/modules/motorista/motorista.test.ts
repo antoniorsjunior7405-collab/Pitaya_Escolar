@@ -5,7 +5,7 @@ import { buildApp } from '../../app.js';
 import { autorizacao, depsDeTeste } from '../../test-utils/deps.js';
 import type { Membro } from '../../shared/acesso/acesso.js';
 import { criarFakeMotoristaRepository } from '../../test-utils/fake-motorista-repository.js';
-import { garantirOrdemDoEvento, podeFinalizar } from './regras-viagem.js';
+import { garantirOrdemDoEvento, garantirTodosAtendidos, podeFinalizar } from './regras-viagem.js';
 
 // Cenário: organização com um motorista dono da rota, outro motorista e um responsável.
 async function cenario() {
@@ -29,11 +29,26 @@ async function cenario() {
 }
 
 test('regras: entregar exige embarque; finalizar só de EM_ANDAMENTO (e é idempotente)', () => {
-  assert.throws(() => garantirOrdemDoEvento('ENTREGUE', false), /embarcar antes/);
-  assert.doesNotThrow(() => garantirOrdemDoEvento('ENTREGUE', true));
+  assert.throws(() => garantirOrdemDoEvento('ENTREGUE', 'AGUARDANDO'), /embarcar antes/);
+  assert.throws(() => garantirOrdemDoEvento('ENTREGUE', 'AUSENTE'), /embarcar antes/);
+  assert.doesNotThrow(() => garantirOrdemDoEvento('ENTREGUE', 'EMBARCADO'));
   assert.equal(podeFinalizar('EM_ANDAMENTO'), 'finalizar');
   assert.equal(podeFinalizar('FINALIZADA'), 'ja-finalizada');
   assert.throws(() => podeFinalizar('PLANEJADA'), /em andamento/);
+});
+
+test('regras: falta só antes do embarque; embarcar depois da falta corrige a falta', () => {
+  assert.doesNotThrow(() => garantirOrdemDoEvento('AUSENTE', 'AGUARDANDO'));
+  assert.throws(() => garantirOrdemDoEvento('AUSENTE', 'EMBARCADO'), /já embarcou/);
+  assert.throws(() => garantirOrdemDoEvento('AUSENTE', 'ENTREGUE'), /já embarcou/);
+  assert.doesNotThrow(() => garantirOrdemDoEvento('EMBARCADO', 'AUSENTE'));
+});
+
+test('regras: finalizar exige que todo aluno esteja entregue ou ausente', () => {
+  assert.doesNotThrow(() => garantirTodosAtendidos([]));
+  assert.doesNotThrow(() => garantirTodosAtendidos(['ENTREGUE', 'AUSENTE']));
+  assert.throws(() => garantirTodosAtendidos(['ENTREGUE', 'EMBARCADO']), /de 1 aluno antes/);
+  assert.throws(() => garantirTodosAtendidos(['AGUARDANDO', 'EMBARCADO']), /de 2 alunos antes/);
 });
 
 test('sem token → 401; outro papel → 403; outro motorista não vê a rota → 404', async () => {
@@ -58,7 +73,7 @@ test('sem token → 401; outro papel → 403; outro motorista não vê a rota �
 });
 
 test('fluxo completo: iniciar, embarcar, entregar, finalizar', async () => {
-  const { app, rota, a1, auth, motorista } = await cenario();
+  const { app, rota, a1, a2, auth, motorista } = await cenario();
   const h = auth(motorista);
 
   const inicio = await app.inject({
@@ -99,6 +114,9 @@ test('fluxo completo: iniciar, embarcar, entregar, finalizar', async () => {
   const { alunos } = detalhe.json<{ alunos: { id: string; status: string }[] }>();
   assert.equal(alunos.find((x) => x.id === a1.id)?.status, 'ENTREGUE');
 
+  // O outro aluno faltou: sem esse registro a viagem não pode terminar.
+  assert.equal((await evento('AUSENTE', a2.id)).statusCode, 201);
+
   const fim = await app.inject({
     method: 'POST',
     url: `/v1/motorista/viagens/${viagemId}/finalizar`,
@@ -108,7 +126,81 @@ test('fluxo completo: iniciar, embarcar, entregar, finalizar', async () => {
   assert.equal(fim.json().status, 'FINALIZADA');
 
   // Depois de finalizada: sem eventos novos (RN-08, sem volta).
-  assert.equal((await evento('EMBARCADO', rota.alunos[1]?.id)).statusCode, 422);
+  assert.equal((await evento('EMBARCADO', a2.id)).statusCode, 422);
+  await app.close();
+});
+
+test('finalizar: bloqueado (422) enquanto algum aluno não foi entregue nem marcado como ausente', async () => {
+  const { app, rota, a1, a2, auth, motorista } = await cenario();
+  const h = auth(motorista);
+  const inicio = await app.inject({
+    method: 'POST',
+    url: `/v1/motorista/rotas/${rota.id}/viagens`,
+    headers: h,
+  });
+  const viagemId: string = inicio.json().id;
+  const evento = (tipo: string, alunoId: string) =>
+    app.inject({
+      method: 'POST',
+      url: `/v1/motorista/viagens/${viagemId}/eventos`,
+      headers: h,
+      payload: { alunoId, tipo },
+    });
+  const finalizar = () =>
+    app.inject({ method: 'POST', url: `/v1/motorista/viagens/${viagemId}/finalizar`, headers: h });
+
+  const semNada = await finalizar();
+  assert.equal(semNada.statusCode, 422);
+  assert.match(semNada.json<{ message: string }>().message, /de 2 alunos/);
+
+  // Embarcado ainda não é desfecho: a criança está dentro do veículo.
+  await evento('EMBARCADO', a1.id);
+  await evento('AUSENTE', a2.id);
+  assert.equal((await finalizar()).statusCode, 422);
+
+  // Falta depois do embarque é recusada; a criança que faltou pode embarcar (corrige a falta).
+  assert.equal((await evento('AUSENTE', a1.id)).statusCode, 422);
+  assert.equal((await evento('EMBARCADO', a2.id)).statusCode, 201);
+  const detalhe = await app.inject({
+    method: 'GET',
+    url: `/v1/motorista/rotas/${rota.id}`,
+    headers: h,
+  });
+  const { alunos } = detalhe.json<{
+    alunos: { status: string; chegadaConfirmada: boolean }[];
+  }>();
+  assert.deepEqual(
+    alunos.map((x) => [x.status, x.chegadaConfirmada]),
+    [
+      ['EMBARCADO', false],
+      ['EMBARCADO', false],
+    ],
+  );
+
+  await evento('ENTREGUE', a1.id);
+  await evento('ENTREGUE', a2.id);
+  const fim = await finalizar();
+  assert.equal(fim.statusCode, 200);
+  assert.equal(fim.json().status, 'FINALIZADA');
+  await app.close();
+});
+
+test('motorista não registra a confirmação de chegada (é do responsável) → 400', async () => {
+  const { app, fake, rota, a1, auth, motorista } = await cenario();
+  const h = auth(motorista);
+  const inicio = await app.inject({
+    method: 'POST',
+    url: `/v1/motorista/rotas/${rota.id}/viagens`,
+    headers: h,
+  });
+  const res = await app.inject({
+    method: 'POST',
+    url: `/v1/motorista/viagens/${inicio.json().id}/eventos`,
+    headers: h,
+    payload: { alunoId: a1.id, tipo: 'CHEGADA_CONFIRMADA' },
+  });
+  assert.equal(res.statusCode, 400);
+  assert.equal(fake.eventos.length, 0);
   await app.close();
 });
 
@@ -163,11 +255,20 @@ test('posição: aceita durante a viagem, valida coordenadas e recusa após fina
   assert.equal(fake.posicoes.get(viagemId)?.velocidade, null);
   assert.equal(fake.posicoes.get(viagemId)?.latitude, -23.56);
 
-  await app.inject({
+  for (const aluno of rota.alunos) {
+    await app.inject({
+      method: 'POST',
+      url: `/v1/motorista/viagens/${viagemId}/eventos`,
+      headers: h,
+      payload: { alunoId: aluno.id, tipo: 'AUSENTE' },
+    });
+  }
+  const fim = await app.inject({
     method: 'POST',
     url: `/v1/motorista/viagens/${viagemId}/finalizar`,
     headers: h,
   });
+  assert.equal(fim.statusCode, 200);
   // LGPD: a última posição é apagada quando a viagem termina.
   assert.equal(fake.posicoes.has(viagemId), false);
   assert.equal((await enviar({ latitude: -23.55, longitude: -46.63 })).statusCode, 422);

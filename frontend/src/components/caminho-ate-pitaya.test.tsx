@@ -30,11 +30,14 @@ async function montar() {
   await act(() => jest.advanceTimersByTime(16));
 }
 
+// O Reanimated 4.7 (SDK 58) tipa getAnimatedStyle pela versão web (sem argumentos, void), mas
+// no Jest roda a versão nativa, que recebe o componente e devolve o estilo.
+const estiloAnimado = getAnimatedStyle as unknown as (componente: unknown) => {
+  transform: { translateX?: number }[];
+};
+
 function posicaoDoCarro() {
-  const estilo = getAnimatedStyle(screen.getByTestId('carro', OCULTOS)) as {
-    transform: { translateX?: number }[];
-  };
-  return estilo.transform[0].translateX ?? 0;
+  return estiloAnimado(screen.getByTestId('carro', OCULTOS)).transform[0].translateX ?? 0;
 }
 
 test('o carro anda pela estrada em direção à pitaya', async () => {

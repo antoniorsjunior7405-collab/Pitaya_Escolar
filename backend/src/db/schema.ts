@@ -24,8 +24,9 @@ import {
 // misturar dados e facilita as regras de acesso (RLS/autorização).
 //
 // Status seguem src/types/index.ts do frontend: viagem PLANEJADA → EM_ANDAMENTO →
-// FINALIZADA (RN-08). No banco só existem eventos EMBARCADO e ENTREGUE
-// ("aguardando" é só estado de tela).
+// FINALIZADA (RN-08). Eventos do aluno na viagem: EMBARCADO, ENTREGUE e AUSENTE (faltou),
+// registrados pelo motorista, e CHEGADA_CONFIRMADA, registrado pelo responsável depois da
+// entrega. "Aguardando" é só estado de tela (nenhum evento ainda).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const papelEnum = pgEnum('papel', ['ADMIN', 'MOTORISTA', 'RESPONSAVEL']);
@@ -34,7 +35,12 @@ export const statusViagemEnum = pgEnum('status_viagem', [
   'EM_ANDAMENTO',
   'FINALIZADA',
 ]);
-export const tipoEventoEnum = pgEnum('tipo_evento', ['EMBARCADO', 'ENTREGUE']);
+export const tipoEventoEnum = pgEnum('tipo_evento', [
+  'EMBARCADO',
+  'ENTREGUE',
+  'AUSENTE',
+  'CHEGADA_CONFIRMADA',
+]);
 export const periodoEnum = pgEnum('periodo', ['MANHA', 'TARDE', 'NOITE']);
 export const plataformaEnum = pgEnum('plataforma', ['IOS', 'ANDROID']);
 export const tipoNotificacaoEnum = pgEnum('tipo_notificacao', [
