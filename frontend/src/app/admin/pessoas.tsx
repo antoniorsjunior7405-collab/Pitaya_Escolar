@@ -91,7 +91,8 @@ export default function Pessoas() {
               {item.email}
               {item.telefone ? ` · ${item.telefone}` : ''}
             </ThemedText>
-            {item.papel === 'MOTORISTA' ? (
+            {/* Backend sem a aprovação ainda não manda aprovadoEm: sem o campo, não há o que mostrar. */}
+            {item.papel === 'MOTORISTA' && item.aprovadoEm !== undefined ? (
               <AprovacaoMotorista
                 nome={item.nome}
                 aprovado={item.aprovadoEm !== null}
