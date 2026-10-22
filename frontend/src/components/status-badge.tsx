@@ -16,6 +16,7 @@ const STATUS: Record<Status, { rotulo: string; tom: Tom }> = {
   AGUARDANDO: { rotulo: 'Aguardando', tom: 'Neutro' },
   EMBARCADO: { rotulo: 'Embarcado', tom: 'Atencao' },
   ENTREGUE: { rotulo: 'Entregue', tom: 'Sucesso' },
+  AUSENTE: { rotulo: 'Faltou', tom: 'Neutro' },
   EM_ANALISE: { rotulo: 'Aguardando aprovação', tom: 'Neutro' },
   APROVADO: { rotulo: 'Aprovado', tom: 'Sucesso' },
 };

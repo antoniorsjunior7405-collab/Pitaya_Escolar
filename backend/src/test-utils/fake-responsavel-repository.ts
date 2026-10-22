@@ -29,6 +29,7 @@ export function criarFakeResponsavelRepository() {
   const alunos: AlunoFake[] = [];
   const vinculos: VinculoFake[] = [];
   const auditoria: { usuarioId: string; acao: AcaoAuditada; entidadeId: string }[] = [];
+  const chegadas = new Set<string>();
 
   const autorizadoPara = (responsavelId: string, alunoId: string) =>
     vinculos.some(
@@ -47,6 +48,7 @@ export function criarFakeResponsavelRepository() {
     id: a.id,
     nome: a.nome,
     statusAluno: 'AGUARDANDO',
+    chegadaConfirmada: false,
     viagemId: null,
     viagemStatus: null,
     rotaNome: null,
@@ -71,6 +73,12 @@ export function criarFakeResponsavelRepository() {
             (!alunoId || a.id === alunoId),
         )
         .map(acompanhamento);
+    },
+    async confirmarChegada({ viagemId, alunoId }) {
+      const chave = `${viagemId}:${alunoId}`;
+      if (chegadas.has(chave)) return false;
+      chegadas.add(chave);
+      return true;
     },
     async cadastrarFilho({ responsavelId, nome, termoVersao, limite }) {
       const cadastrados = alunos.filter(
@@ -144,5 +152,5 @@ export function criarFakeResponsavelRepository() {
     return aluno;
   }
 
-  return { repo, alunos, vinculos, auditoria, adicionarAlunoDaEscola };
+  return { repo, alunos, vinculos, auditoria, chegadas, adicionarAlunoDaEscola };
 }

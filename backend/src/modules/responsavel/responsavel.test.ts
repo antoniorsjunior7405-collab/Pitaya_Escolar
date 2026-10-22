@@ -17,6 +17,7 @@ const linha = (extra: Partial<AcompanhamentoRow> = {}): AcompanhamentoRow => ({
   id: randomUUID(),
   nome: 'Ana',
   statusAluno: 'EMBARCADO',
+  chegadaConfirmada: false,
   viagemId: randomUUID(),
   viagemStatus: 'EM_ANDAMENTO',
   rotaNome: 'Rota Manhã',
@@ -36,12 +37,17 @@ async function cenario(linhas: AcompanhamentoRow[]) {
   const membros: Membro[] = [
     { usuarioId: responsavel, organizacaoId: randomUUID(), papel: 'RESPONSAVEL' },
   ];
+  const confirmacoes: { viagemId: string; alunoId: string; responsavelId: string }[] = [];
   const responsavelRepository = parcial<ResponsavelRepository>('responsavelRepository', {
     listarAcompanhamento: async (_escopo, _hoje, alunoId) =>
       alunoId ? linhas.filter((l) => l.id === alunoId) : linhas,
+    confirmarChegada: async (input) => {
+      confirmacoes.push(input);
+      return confirmacoes.length === 1;
+    },
   });
   const app = await buildApp(depsDeTeste({ responsavelRepository }));
-  return { app, h: autorizacao(app, responsavel, membros) };
+  return { app, responsavel, confirmacoes, h: autorizacao(app, responsavel, membros) };
 }
 
 test('detalhe traz a posição durante a viagem; sem viagem, posição e viagem vêm nulas', async () => {
@@ -96,6 +102,71 @@ test('filho de outra família → 404; motorista na área do responsável → 40
     (await app.inject({ method: 'GET', url: '/v1/responsavel/filhos', headers: hm })).statusCode,
     403,
   );
+  await app.close();
+});
+
+test('confirmar chegada: depois da entrega grava na viagem do filho, com o responsável do token', async () => {
+  const entregue = linha({ statusAluno: 'ENTREGUE', viagemStatus: 'FINALIZADA' });
+  const { app, h, responsavel, confirmacoes } = await cenario([entregue]);
+  const confirmar = () =>
+    app.inject({
+      method: 'POST',
+      url: `/v1/responsavel/filhos/${entregue.id}/chegada`,
+      headers: h,
+    });
+
+  const res = await confirmar();
+  assert.equal(res.statusCode, 200, res.body);
+  assert.equal(res.json<{ chegadaConfirmada: boolean }>().chegadaConfirmada, true);
+  assert.deepEqual(confirmacoes, [
+    { viagemId: entregue.viagemId, alunoId: entregue.id, responsavelId: responsavel },
+  ]);
+
+  // Confirmar de novo (ex.: toque duplo, reenvio sem rede) não é erro.
+  assert.equal((await confirmar()).statusCode, 200);
+  await app.close();
+});
+
+test('confirmar chegada: antes da entrega, aluno ausente ou sem viagem → 422 e nada é gravado', async () => {
+  const situacoes = [
+    linha({ statusAluno: 'AGUARDANDO' }),
+    linha({ statusAluno: 'EMBARCADO' }),
+    linha({ statusAluno: 'AUSENTE' }),
+    linha({ statusAluno: 'AGUARDANDO', viagemId: null, viagemStatus: null }),
+  ];
+  const { app, h, confirmacoes } = await cenario(situacoes);
+  for (const filho of situacoes) {
+    const res = await app.inject({
+      method: 'POST',
+      url: `/v1/responsavel/filhos/${filho.id}/chegada`,
+      headers: h,
+    });
+    assert.equal(res.statusCode, 422, filho.statusAluno);
+  }
+  assert.equal(confirmacoes.length, 0);
+  await app.close();
+});
+
+test('confirmar chegada: filho de outra família → 404; motorista → 403', async () => {
+  const { app, h, confirmacoes } = await cenario([linha({ statusAluno: 'ENTREGUE' })]);
+  const alheio = await app.inject({
+    method: 'POST',
+    url: `/v1/responsavel/filhos/${randomUUID()}/chegada`,
+    headers: h,
+  });
+  assert.equal(alheio.statusCode, 404);
+
+  const motorista = randomUUID();
+  const hm = autorizacao(app, motorista, [
+    { usuarioId: motorista, organizacaoId: randomUUID(), papel: 'MOTORISTA' },
+  ]);
+  const doMotorista = await app.inject({
+    method: 'POST',
+    url: `/v1/responsavel/filhos/${randomUUID()}/chegada`,
+    headers: hm,
+  });
+  assert.equal(doMotorista.statusCode, 403);
+  assert.equal(confirmacoes.length, 0);
   await app.close();
 });
 
@@ -297,14 +368,16 @@ test('excluir filho: sem histórico apaga; com histórico anonimiza; de outro �
   await app.close();
 });
 
-test('conversão da linha crua: driver devolve data e números como texto', () => {
+test('conversão da linha crua: driver devolve data, números e booleanos como texto', () => {
   const r = converter({
     ...linha(),
     latitude: '-23.5615',
     longitude: '-46.656',
     velocidade: null,
     posicaoAtualizadaEm: '2026-10-09 18:21:56.925+00',
+    chegadaConfirmada: 't',
   });
+  assert.equal(r.chegadaConfirmada, true);
   assert.equal(r.latitude, -23.5615);
   assert.ok(r.posicaoAtualizadaEm instanceof Date);
   assert.equal(r.posicaoAtualizadaEm.toISOString(), '2026-10-09T18:21:56.925Z');

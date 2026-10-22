@@ -25,6 +25,7 @@ function resumo(r: AcompanhamentoRow) {
     id: r.id,
     nome: r.nome,
     statusAluno: r.statusAluno,
+    chegadaConfirmada: r.chegadaConfirmada,
     viagem: r.viagemId && r.viagemStatus ? { id: r.viagemId, status: r.viagemStatus } : null,
     rotaNome: r.rotaNome,
     motorista: r.motoristaNome ? { nome: r.motoristaNome, telefone: r.motoristaTelefone } : null,
@@ -55,6 +56,26 @@ export function criarResponsavelService(repo: ResponsavelRepository, hoje = hoje
             }
           : null;
       return { ...resumo(filho), posicao };
+    },
+
+    /**
+     * O responsável confirma que o filho chegou. Só depois de o motorista registrar a entrega,
+     * e na viagem atual do filho (a mesma que a tela mostra). Confirmar de novo é aceito.
+     */
+    async confirmarChegada(m: Membro, alunoId: string) {
+      const [filho] = await repo.listarAcompanhamento(escopoDe(m), hoje(), alunoId);
+      if (!filho) throw new NotFoundError(ALUNO_NAO_ENCONTRADO);
+      if (!filho.viagemId || filho.statusAluno !== 'ENTREGUE') {
+        throw new RegraDeNegocioError(
+          'A chegada pode ser confirmada depois que o motorista registrar a entrega',
+        );
+      }
+      await repo.confirmarChegada({
+        viagemId: filho.viagemId,
+        alunoId: filho.id,
+        responsavelId: m.usuarioId,
+      });
+      return { ...resumo(filho), chegadaConfirmada: true };
     },
 
     // ── Filho cadastrado pela própria família ────────────────────────────────

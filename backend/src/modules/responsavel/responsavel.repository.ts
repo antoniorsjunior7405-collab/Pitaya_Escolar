@@ -12,6 +12,7 @@ export type AcompanhamentoRow = {
   id: string;
   nome: string;
   statusAluno: StatusAluno;
+  chegadaConfirmada: boolean;
   viagemId: string | null;
   viagemStatus: StatusViagem | null;
   rotaNome: string | null;
@@ -27,12 +28,14 @@ export type AcompanhamentoRow = {
 
 /**
  * Em SQL escrito à mão (db.execute) o driver devolve timestamp como TEXTO e números de ponto
- * flutuante podem vir como texto; convertemos aqui para o tipo que o resto do código espera.
+ * flutuante e booleanos podem vir como texto; convertemos aqui para o tipo que o resto do
+ * código espera.
  */
 export type LinhaBruta = Omit<
   AcompanhamentoRow,
-  'latitude' | 'longitude' | 'velocidade' | 'posicaoAtualizadaEm'
+  'chegadaConfirmada' | 'latitude' | 'longitude' | 'velocidade' | 'posicaoAtualizadaEm'
 > & {
+  chegadaConfirmada: boolean | string;
   latitude: number | string | null;
   longitude: number | string | null;
   velocidade: number | string | null;
@@ -44,6 +47,7 @@ const numero = (v: number | string | null) => (v === null ? null : Number(v));
 export function converter(r: LinhaBruta): AcompanhamentoRow {
   return {
     ...r,
+    chegadaConfirmada: r.chegadaConfirmada === true || r.chegadaConfirmada === 't',
     latitude: numero(r.latitude),
     longitude: numero(r.longitude),
     velocidade: numero(r.velocidade),
@@ -61,6 +65,15 @@ export interface ResponsavelRepository {
     hoje: string,
     alunoId?: string,
   ): Promise<AcompanhamentoRow[]>;
+  /**
+   * Registra que o responsável confirmou a chegada do filho na viagem. Reenviar não duplica:
+   * false se a confirmação já existia. A posse do aluno e a entrega são conferidas pelo service.
+   */
+  confirmarChegada(input: {
+    viagemId: string;
+    alunoId: string;
+    responsavelId: string;
+  }): Promise<boolean>;
 
   // ── Filho cadastrado pela própria família ──────────────────────────────────
   // "Da família" = aluno sem organização, ativo, com vínculo AUTORIZADO do responsável do
@@ -149,8 +162,14 @@ export function createResponsavelRepository(db: Db): ResponsavelRepository {
             WHEN EXISTS (SELECT 1 FROM eventos_viagem e
                          WHERE e.viagem_id = t.viagem_id AND e.aluno_id = a.id
                            AND e.tipo = 'EMBARCADO') THEN 'EMBARCADO'
+            WHEN EXISTS (SELECT 1 FROM eventos_viagem e
+                         WHERE e.viagem_id = t.viagem_id AND e.aluno_id = a.id
+                           AND e.tipo = 'AUSENTE') THEN 'AUSENTE'
             ELSE 'AGUARDANDO'
           END AS "statusAluno",
+          EXISTS (SELECT 1 FROM eventos_viagem e
+                  WHERE e.viagem_id = t.viagem_id AND e.aluno_id = a.id
+                    AND e.tipo = 'CHEGADA_CONFIRMADA') AS "chegadaConfirmada",
           t.viagem_id AS "viagemId",
           t.viagem_status AS "viagemStatus",
           t.rota_nome AS "rotaNome",
@@ -198,6 +217,17 @@ export function createResponsavelRepository(db: Db): ResponsavelRepository {
         ORDER BY a.nome
       `);
       return resultado.rows.map(converter);
+    },
+
+    async confirmarChegada({ viagemId, alunoId, responsavelId }) {
+      const criados = await db
+        .insert(eventosViagem)
+        .values({ viagemId, alunoId, tipo: 'CHEGADA_CONFIRMADA', registradoPor: responsavelId })
+        .onConflictDoNothing({
+          target: [eventosViagem.viagemId, eventosViagem.alunoId, eventosViagem.tipo],
+        })
+        .returning({ id: eventosViagem.id });
+      return criados.length > 0;
     },
 
     cadastrarFilho({ responsavelId, nome, termoVersao, limite }) {

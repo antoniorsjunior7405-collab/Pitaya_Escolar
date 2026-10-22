@@ -11,7 +11,9 @@ const limiteCadastro = { rateLimit: { max: 20, timeWindow: '1 hour' } };
 const filhoResumo = z.object({
   id: z.uuid(),
   nome: z.string(),
-  statusAluno: z.enum(['AGUARDANDO', 'EMBARCADO', 'ENTREGUE']),
+  statusAluno: z.enum(['AGUARDANDO', 'EMBARCADO', 'ENTREGUE', 'AUSENTE']),
+  // O responsável já confirmou que o filho chegou (só existe depois da entrega).
+  chegadaConfirmada: z.boolean(),
   viagem: z
     .object({ id: z.uuid(), status: z.enum(['PLANEJADA', 'EM_ANDAMENTO', 'FINALIZADA']) })
     .nullable(),
@@ -46,6 +48,12 @@ export function criarResponsavelRoutes(service: ResponsavelService) {
       '/filhos/:alunoId',
       { schema: { params: alunoParams, response: { 200: filhoDetalhe } } },
       async (req) => service.acompanharFilho(membroDe(req), req.params.alunoId),
+    );
+
+    r.post(
+      '/filhos/:alunoId/chegada',
+      { schema: { params: alunoParams, response: { 200: filhoResumo } } },
+      async (req) => service.confirmarChegada(membroDe(req), req.params.alunoId),
     );
 
     // ── Filho cadastrado pela própria família ────────────────────────────────

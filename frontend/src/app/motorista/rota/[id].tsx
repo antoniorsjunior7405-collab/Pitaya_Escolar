@@ -4,6 +4,7 @@ import { FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AvisoRastreamento } from '@/components/aviso-rastreamento';
+import { CartaoAlunoViagem } from '@/components/cartao-aluno-viagem';
 import { MapaSemPosicao } from '@/components/mapa-sem-posicao';
 import { MapaVeiculo } from '@/components/mapa-veiculo';
 import { StatusBadge } from '@/components/status-badge';
@@ -18,6 +19,7 @@ import { useRastreamentoViagem } from '@/hooks/use-rastreamento-viagem';
 import { useResponsive } from '@/hooks/use-responsive';
 import { avisar, confirmar } from '@/lib/dialogo';
 import { mensagemDeErro } from '@/lib/http';
+import { alunosPendentes, motivoParaNaoFinalizar } from '@/lib/viagem';
 import {
   chavesMotorista,
   detalharRota,
@@ -25,10 +27,11 @@ import {
   iniciarViagem,
   registrarEvento,
 } from '@/services/motorista';
-import type { TipoEvento } from '@/types';
+import type { TipoEventoDoMotorista } from '@/types';
 
-// Tela de uma rota: iniciar a viagem, marcar embarque/entrega e finalizar.
-// As regras (RN-08 etc.) são validadas no backend; aqui a interface só guia o motorista.
+// Tela de uma rota: iniciar a viagem, marcar embarque, entrega ou falta e finalizar.
+// As regras (RN-08, finalizar só com todos entregues ou ausentes) são validadas no backend;
+// aqui a interface só guia o motorista.
 export default function DetalheDaRota() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const responsivo = useResponsive();
@@ -56,7 +59,7 @@ export default function DetalheDaRota() {
     onError: avisarErro,
   });
   const evento = useMutation({
-    mutationFn: (v: { viagemId: string; alunoId: string; tipo: TipoEvento }) =>
+    mutationFn: (v: { viagemId: string; alunoId: string; tipo: TipoEventoDoMotorista }) =>
       registrarEvento(v.viagemId, v.alunoId, v.tipo),
     onSuccess: atualizar,
     onError: avisarErro,
@@ -76,6 +79,7 @@ export default function DetalheDaRota() {
     return <EstadoErro erro={rota.error} onTentarNovamente={() => void rota.refetch()} />;
 
   const { data } = rota;
+  const motivoBloqueio = motivoParaNaoFinalizar(alunosPendentes(data.alunos));
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
@@ -114,9 +118,15 @@ export default function DetalheDaRota() {
                   titulo="Finalizar viagem"
                   variante="secundario"
                   carregando={finalizar.isPending}
+                  desabilitado={motivoBloqueio !== null}
                   onPress={() => confirmarFinalizacao(viagem.id)}
                 />
               )}
+              {emAndamento && motivoBloqueio ? (
+                <ThemedText type="small" themeColor="textSecondary">
+                  {motivoBloqueio}
+                </ThemedText>
+              ) : null}
               <AvisoRastreamento estado={rastreamento.estado} />
             </Card>
             {/* A posição vem do GPS do aparelho: o mapa aparece mesmo se o envio ao servidor
@@ -138,42 +148,23 @@ export default function DetalheDaRota() {
         ListFooterComponent={
           !emAndamento && data.alunos.length > 0 ? (
             <ThemedText type="small" themeColor="textSecondary">
-              Inicie a viagem para marcar embarque e entrega.
+              Inicie a viagem para marcar embarque, entrega e falta.
             </ThemedText>
           ) : null
         }
         renderItem={({ item }) => {
-          const proximo: TipoEvento | null =
-            item.status === 'AGUARDANDO'
-              ? 'EMBARCADO'
-              : item.status === 'EMBARCADO'
-                ? 'ENTREGUE'
-                : null;
-          const enviandoEste = evento.isPending && evento.variables?.alunoId === item.id;
+          const doAluno = evento.isPending && evento.variables?.alunoId === item.id;
           return (
-            <Card>
-              <ThemedText type="smallBold" style={styles.nome}>
-                {item.ordem}. {item.nome}
-              </ThemedText>
-              {item.endereco ? (
-                <ThemedText type="small" themeColor="textSecondary">
-                  {item.endereco}
-                </ThemedText>
-              ) : null}
-              <StatusBadge status={emAndamento || viagem ? item.status : 'AGUARDANDO'} />
-              {emAndamento && proximo ? (
-                <PrimaryButton
-                  titulo={
-                    proximo === 'EMBARCADO' ? `Embarcou: ${item.nome}` : `Entregue: ${item.nome}`
-                  }
-                  carregando={enviandoEste}
-                  desabilitado={evento.isPending && !enviandoEste}
-                  onPress={() =>
-                    evento.mutate({ viagemId: viagem.id, alunoId: item.id, tipo: proximo })
-                  }
-                />
-              ) : null}
-            </Card>
+            <CartaoAlunoViagem
+              aluno={item}
+              status={emAndamento || viagem ? item.status : 'AGUARDANDO'}
+              emAndamento={emAndamento}
+              enviando={doAluno ? evento.variables.tipo : null}
+              ocupado={evento.isPending && !doAluno}
+              onRegistrar={(tipo) => {
+                if (viagem) evento.mutate({ viagemId: viagem.id, alunoId: item.id, tipo });
+              }}
+            />
           );
         }}
       />
@@ -185,5 +176,4 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   lista: { paddingVertical: Spacing.three, gap: Spacing.three },
   secao: { marginTop: Spacing.two },
-  nome: { fontSize: 16 },
 });

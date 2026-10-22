@@ -8,8 +8,11 @@ export const veiculoParams = z.object({ veiculoId: z.uuid() });
 const texto = (max: number) => z.string().trim().min(1).max(max);
 const veiculoResumo = z.object({ placa: z.string(), modelo: z.string() });
 const statusViagem = z.enum(['PLANEJADA', 'EM_ANDAMENTO', 'FINALIZADA']);
-const statusAluno = z.enum(['AGUARDANDO', 'EMBARCADO', 'ENTREGUE']);
-const tipoEvento = z.enum(['EMBARCADO', 'ENTREGUE']);
+const statusAluno = z.enum(['AGUARDANDO', 'EMBARCADO', 'ENTREGUE', 'AUSENTE']);
+// O motorista registra embarque, entrega e falta. CHEGADA_CONFIRMADA só o responsável registra
+// (rota própria); aqui ele aparece apenas na leitura dos eventos.
+const tipoEventoDoMotorista = z.enum(['EMBARCADO', 'ENTREGUE', 'AUSENTE']);
+const tipoEvento = z.enum([...tipoEventoDoMotorista.options, 'CHEGADA_CONFIRMADA']);
 
 export const rotaResumo = z.object({
   id: z.uuid(),
@@ -38,12 +41,13 @@ export const rotaDetalhe = rotaResumo.omit({ totalAlunos: true }).extend({
       ordem: z.number().int(),
       endereco: z.string().nullable(),
       status: statusAluno,
+      chegadaConfirmada: z.boolean(),
     }),
   ),
   viagemAtual: viagem.nullable(),
 });
 
-export const eventoBody = z.object({ alunoId: z.uuid(), tipo: tipoEvento });
+export const eventoBody = z.object({ alunoId: z.uuid(), tipo: tipoEventoDoMotorista });
 
 export const posicaoBody = z.object({
   latitude: z.number().min(-90).max(90),
@@ -105,6 +109,6 @@ export const perfil = z.object({
 });
 
 export type PosicaoInput = z.infer<typeof posicaoBody>;
-export type TipoEventoInput = z.infer<typeof tipoEvento>;
+export type TipoEventoInput = z.infer<typeof tipoEventoDoMotorista>;
 export type VeiculoInput = z.infer<typeof veiculoBody>;
 export type PerfilInput = z.infer<typeof perfilBody>;

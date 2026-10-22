@@ -4,7 +4,7 @@ import type {
   PerfilMotorista,
   RotaDetalhe,
   RotaResumo,
-  TipoEvento,
+  TipoEventoDoMotorista,
   Viagem,
   ViagemHistorico,
 } from '@/types';
@@ -26,7 +26,7 @@ export const detalharRota = (rotaId: string) =>
 export const iniciarViagem = (rotaId: string) =>
   api<Viagem>(`/v1/motorista/rotas/${encodeURIComponent(rotaId)}/viagens`, { method: 'POST' });
 
-export const registrarEvento = (viagemId: string, alunoId: string, tipo: TipoEvento) =>
+export const registrarEvento = (viagemId: string, alunoId: string, tipo: TipoEventoDoMotorista) =>
   api<Evento>(`/v1/motorista/viagens/${encodeURIComponent(viagemId)}/eventos`, {
     method: 'POST',
     body: { alunoId, tipo },
